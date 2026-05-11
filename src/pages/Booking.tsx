@@ -54,7 +54,7 @@ export default function Booking() {
   useEffect(() => {
     if (token) {
       fetchResources()
-      const interval = setInterval(fetchResources, 60000)
+      const interval = setInterval(fetchResources, 30000)
       return () => clearInterval(interval)
     }
   }, [token])

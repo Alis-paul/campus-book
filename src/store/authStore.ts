@@ -22,6 +22,8 @@ interface AuthState {
   login: (role: string | null | undefined, token: string, user: User) => void
   logout: () => void
   updateRole: (role: string) => void
+  // DEMO MODE HELPER
+  setDemoSession: (role: 'faculty' | 'student') => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -53,7 +55,7 @@ export const useAuthStore = create<AuthState>()(
           
           const updatedUser: User = {
             ...state.user,
-            role: r // r is a string, which satisfies User.role: string
+            role: r
           };
 
           return {
@@ -62,6 +64,20 @@ export const useAuthStore = create<AuthState>()(
           };
         });
       },
+
+      setDemoSession: (role) => {
+        set({
+          role: role,
+          token: `demo-${role}`,
+          user: {
+            id: `demo-${role}-id`,
+            name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+            email: `demo-${role}@example.com`,
+            role: role,
+            college: 'CampusBook Demo University'
+          }
+        });
+      }
     }),
     {
       name: 'campusbook-auth',

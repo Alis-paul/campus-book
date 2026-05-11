@@ -84,7 +84,7 @@ export default function CampusMap() {
   useEffect(() => {
     if (token) {
       fetchResources()
-      const interval = setInterval(fetchResources, 60000)
+      const interval = setInterval(fetchResources, 30000)
       return () => clearInterval(interval)
     }
   }, [token])
@@ -124,8 +124,8 @@ export default function CampusMap() {
       return;
     }
 
-    const start = new Date(`${bookingDate}T${startTime}:00Z`);
-    const end = new Date(`${bookingDate}T${endTime}:00Z`);
+    const start = new Date(`${bookingDate}T${startTime}:00`);
+    const end = new Date(`${bookingDate}T${endTime}:00`);
 
     if (end <= start) {
       setError("End time must be after start time");

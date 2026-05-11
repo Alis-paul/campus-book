@@ -10,6 +10,28 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       token = req.headers.authorization.split(' ')[1];
     }
 
+    // DEMO MODE HANDLING
+    if (token === 'demo-faculty' || token === 'demo-student') {
+      const role = token === 'demo-faculty' ? 'faculty' : 'student';
+      let user = await (prisma.user as any).findFirst({ where: { role } });
+      
+      // If no user exists for this role, create a demo one on the fly to prevent crashes
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+            email: `demo-${role}@example.com`,
+            password: 'demo-password-not-used',
+            role: role,
+            college: 'CampusBook Demo University'
+          }
+        });
+      }
+      
+      req.user = user as any;
+      return next();
+    }
+
     if (!token) {
       return next(new AppError('Not authorized, no token provided', 401));
     }
@@ -35,7 +57,6 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
 
 /**
  * Restrict access to specific roles (case-insensitive comparison).
- * Usage: restrictTo('faculty', 'admin')
  */
 export const restrictTo = (...roles: string[]) => {
   const normalizedRoles = roles.map(r => r.toLowerCase());

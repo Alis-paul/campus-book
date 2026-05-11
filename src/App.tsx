@@ -23,7 +23,7 @@ function App() {
         
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/signup" element={<Navigate to="/login" replace />} />
         </Route>
 
         <Route element={<DashboardLayout />}>

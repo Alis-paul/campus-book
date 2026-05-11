@@ -1,19 +1,26 @@
 import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Users, CalendarCheck, Clock, Activity, Info, AlertCircle, QrCode, X, Calendar } from "lucide-react"
+import { Users, CalendarCheck, Clock, Activity, Info, ShieldAlert, QrCode, X, Calendar } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 
 export default function Dashboard() {
   const { role, token, user } = useAuthStore()
   const isStudent = role?.toLowerCase() === 'student'
+  
+  // Data States
   const [userBookings, setUserBookings] = useState<any[]>([])
   const [resources, setResources] = useState<any[]>([])
   const [waitlists, setWaitlists] = useState<any[]>([])
+  const [campusStats, setCampusStats] = useState<any>(null)
+  const [activityStats, setActivityStats] = useState<any[]>([])
+
+  // UI States
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
   const [selectedQR, setSelectedQR] = useState<string | null>(null)
   const [selectedBookingName, setSelectedBookingName] = useState("")
 
+  // Form States
   const [selectedResourceId, setSelectedResourceId] = useState("")
   const [bookingDate, setBookingDate] = useState("")
   const [startTime, setStartTime] = useState("")
@@ -21,122 +28,129 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  const fetchResources = async () => {
+  const fetchData = async () => {
+    if (!token) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/resources`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await res.json()
-      if (data.status === 'success') {
-        setResources(data.data.resources)
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      const [bookingsRes, resourcesRes, waitlistsRes, statsRes, activityRes] = await Promise.all([
+        fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, { headers }),
+        fetch(`${import.meta.env.VITE_API_URL}/api/bookings/resources`, { headers }),
+        fetch(`${import.meta.env.VITE_API_URL}/api/bookings/waitlists`, { headers }),
+        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/stats`, { headers }),
+        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/activity`, { headers })
+      ]);
 
-  const fetchUserBookings = async () => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await res.json()
-      if (data.status === 'success') {
-        setUserBookings(data.data.bookings)
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
+      const [bookingsJson, resourcesJson, waitlistsJson, statsJson, activityJson] = await Promise.all([
+        bookingsRes.json(),
+        resourcesRes.json(),
+        waitlistsRes.json(),
+        statsRes.json(),
+        activityRes.json()
+      ]);
 
-  const fetchWaitlists = async () => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/waitlists`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await res.json()
-      if (data.status === 'success') {
-        setWaitlists(data.data.waitlists)
-      }
+      if (bookingsJson.status === 'success') setUserBookings(bookingsJson.data.bookings);
+      if (resourcesJson.status === 'success') setResources(resourcesJson.data.resources);
+      if (waitlistsJson.status === 'success') setWaitlists(waitlistsJson.data.waitlists);
+      if (statsJson.status === 'success') setCampusStats(statsJson.data.summary);
+      if (activityJson.status === 'success') setActivityStats(activityJson.data.chartData);
+
     } catch (err) {
-      console.error(err)
+      console.error("Dashboard fetch error:", err);
     }
-  }
+  };
 
   useEffect(() => {
-    if (token) {
-      fetchUserBookings()
-      fetchResources()
-      fetchWaitlists()
-      const interval = setInterval(() => {
-        fetchUserBookings()
-        fetchResources()
-        fetchWaitlists()
-      }, 60000)
-      return () => clearInterval(interval)
-    }
-  }, [token])
+    fetchData();
+    // Refresh every 30 seconds for live updates
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [token]);
 
   const stats = useMemo(() => {
-    const totalBookings = userBookings.length
-    const activeResources = resources.length
+    const totalCampusBookings = campusStats?.bookings || 0;
+    const activeResources = resources.length;
     
-    // Occupancy Rate Calculation
-    const now = new Date()
+    // Occupancy Calculation
+    const now = new Date();
     const occupiedCount = resources.filter(r => 
-      r.bookings.some((b: any) => 
+      r.bookings?.some((b: any) => 
         new Date(b.startTime) <= now && 
         new Date(b.endTime) >= now && 
         ['CONFIRMED', 'ACTIVE'].includes(b.status)
       )
-    ).length
-    const occupancyRate = activeResources > 0 ? Math.round((occupiedCount / activeResources) * 100) : 0
+    ).length;
+    const occupancyRate = activeResources > 0 ? Math.round((occupiedCount / activeResources) * 100) : 0;
 
-    // Avg Wait Time Calculation (mocking a bit since real data might be 0)
-    // If no waitlist entries, show 0m
-    const avgWait = waitlists.length > 0 ? "12m" : "0m"
+    // Real Wait Time based on waitlist length (approx 15m per person)
+    const activeWaitlist = waitlists.filter(w => w.status === 'WAITING').length;
+    const avgWaitMinutes = activeWaitlist * 15;
 
     return [
-      { label: "Total Bookings", value: totalBookings.toString(), change: "+0%", icon: CalendarCheck, trend: "up" },
-      { label: "Active Resources", value: activeResources.toString(), change: "+0%", icon: Activity, trend: "up" },
-      { label: "Occupancy Rate", value: `${occupancyRate}%`, change: "+0%", icon: Users, trend: "up" },
-      { label: "Avg Wait Time", value: avgWait, change: "-0m", icon: Clock, trend: "down" },
+      { 
+        label: "Campus Bookings", 
+        value: totalCampusBookings.toString(), 
+        change: "Today", 
+        icon: CalendarCheck, 
+        trend: "up" 
+      },
+      { 
+        label: "Active Resources", 
+        value: activeResources.toString(), 
+        change: "Live", 
+        icon: Activity, 
+        trend: "up" 
+      },
+      { 
+        label: "Occupancy Rate", 
+        value: `${occupancyRate}%`, 
+        change: occupancyRate > 70 ? "High" : "Optimal", 
+        icon: Users, 
+        trend: occupancyRate > 70 ? "up" : "down" 
+      },
+      { 
+        label: "Est. Wait Time", 
+        value: `${avgWaitMinutes}m`, 
+        change: activeWaitlist > 0 ? "Queued" : "None", 
+        icon: Clock, 
+        trend: activeWaitlist > 0 ? "up" : "down" 
+      },
     ]
-  }, [userBookings, resources, waitlists])
+  }, [campusStats, resources, waitlists]);
 
   const utilizationData = useMemo(() => {
-    const hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    const today = new Date().toISOString().split('T')[0]
-    
-    // Flatten all bookings from all resources for today
-    const allBookings = resources.flatMap(r => r.bookings || [])
-      .filter((b: any) => b.startTime.startsWith(today))
-
-    if (allBookings.length === 0) return []
-
-    return hours.map(h => {
-      const count = allBookings.filter((b: any) => {
-        const startHour = new Date(b.startTime).getUTCHours()
-        const endHour = new Date(b.endTime).getUTCHours()
-        return h >= startHour && h < endHour
-      }).length
-      // Max occupancy for the chart bar height percentage
-      const percentage = resources.length > 0 ? (count / resources.length) * 100 : 0
-      return { hour: h, percentage: Math.min(percentage, 100) }
-    })
-  }, [resources])
+    // If we have activityStats from the backend, use those first
+    if (activityStats.length > 0) {
+      // Map to percentage for the bars
+      const maxBookings = Math.max(...activityStats.map(d => d.bookings), 1);
+      return activityStats.map((d, i) => ({
+        hour: i, // Placeholder for index/day mapping
+        percentage: (d.bookings / maxBookings) * 100,
+        label: d.date.split('-').slice(1).join('/') // MM/DD
+      }));
+    }
+    return [];
+  }, [activityStats]);
 
   const handleBooking = async () => {
     setSubmitting(true);
     setError("");
+    
     if (!selectedResourceId || !bookingDate || !startTime || !endTime) {
       setError("Please fill in all fields");
       setSubmitting(false);
       return;
     }
 
-    const start = new Date(`${bookingDate}T${startTime}:00Z`);
-    const end = new Date(`${bookingDate}T${endTime}:00Z`);
+    // Construct local datetime
+    const start = new Date(`${bookingDate}T${startTime}:00`);
+    const end = new Date(`${bookingDate}T${endTime}:00`);
+
+    if (start < new Date()) {
+      setError("Start time must be in the future");
+      setSubmitting(false);
+      return;
+    }
 
     if (end <= start) {
       setError("End time must be after start time");
@@ -151,17 +165,16 @@ export default function Dashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}` 
         },
-        body: JSON.stringify({ resourceId: selectedResourceId, startTime: start.toISOString(), endTime: end.toISOString() })
+        body: JSON.stringify({ 
+          resourceId: selectedResourceId, 
+          startTime: start.toISOString(), 
+          endTime: end.toISOString() 
+        })
       });
       const data = await res.json();
       if (data.status === 'success') {
         setShowBookingModal(false);
-        setSelectedResourceId("");
-        setBookingDate("");
-        setStartTime("");
-        setEndTime("");
-        fetchUserBookings();
-        fetchResources();
+        fetchData(); // Immediate refresh
         
         if (data.data.qrCodeBase64) {
           setSelectedQR(data.data.qrCodeBase64);
@@ -178,8 +191,6 @@ export default function Dashboard() {
     }
   }
 
-
-
   const schedule = userBookings
     .filter(b => b.status !== 'EXPIRED' && b.status !== 'CANCELLED')
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
@@ -189,8 +200,7 @@ export default function Dashboard() {
       time: `${new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
       location: b.resource.location,
       status: b.status,
-      qrCodeBase64: b.qrCodeBase64,
-      canCancel: !isStudent && b.status === 'CONFIRMED'
+      qrCodeBase64: b.qrCodeBase64
     }))
 
   const getStatusColor = (status: string) => {
@@ -209,14 +219,14 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Campus Overview</h1>
             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
               isStudent ? 'bg-accent/20 text-accent border-accent/30' : 'bg-primary/20 text-primary border-primary/30'
             }`}>
-              {isStudent ? 'Student Portal' : 'Faculty Portal'}
+              {isStudent ? 'Student View' : 'Faculty View'}
             </span>
           </div>
-          <p className="text-muted-foreground text-sm">Welcome back, {user?.name}! Real-time campus data loaded.</p>
+          <p className="text-muted-foreground text-sm">Welcome back, {user?.name}! Live campus data loaded.</p>
         </div>
         {!isStudent && (
           <button 
@@ -234,7 +244,7 @@ export default function Dashboard() {
           <div>
             <h3 className="font-semibold text-accent text-sm">Student Access</h3>
             <p className="text-sm text-accent/80 mt-1">
-              Verify faculty presence using the QR scanner in your portal.
+              Verify faculty presence using the QR scanner to prevent "Ghost Bookings" and keep resource data accurate.
             </p>
           </div>
         </div>
@@ -265,39 +275,35 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart Area */}
+        {/* Utilization Chart */}
         <div className="lg:col-span-2 glass-card rounded-xl border border-border p-6 h-[400px] flex flex-col relative overflow-hidden">
            <div className="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent pointer-events-none" />
            <h3 className="font-bold mb-6 flex items-center gap-2 z-10 text-sm">
-             <Activity className="w-4 h-4 text-primary" /> Today's Campus Utilization
+             <Activity className="w-4 h-4 text-primary" /> Campus Activity (7-Day Trend)
            </h3>
            
            <div className="flex-1 flex items-end justify-between px-4 z-10 relative">
              {utilizationData.length === 0 ? (
                <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30">
                  <Activity className="w-12 h-12 mb-2" />
-                 <p className="font-bold">No bookings today</p>
+                 <p className="font-bold">Loading activity data...</p>
                </div>
              ) : utilizationData.map((data, i) => (
                 <motion.div 
                    key={i}
                    initial={{ height: 0 }}
-                   animate={{ height: `${data.percentage}%` }}
+                   animate={{ height: `${Math.max(data.percentage, 10)}%` }}
                    transition={{ duration: 1, delay: i * 0.05 }}
-                   className="w-[5%] bg-gradient-to-t from-primary to-accent rounded-t-md opacity-80 hover:opacity-100 transition-opacity cursor-pointer relative group"
+                   className="w-[10%] bg-gradient-to-t from-primary to-accent rounded-t-md opacity-80 hover:opacity-100 transition-opacity cursor-pointer relative group"
                 >
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-card text-[10px] py-1 px-2 rounded border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    {data.hour}:00 - {Math.round(data.percentage)}%
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-card text-[10px] py-1 px-2 rounded border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
+                    {data.label}: {Math.round(data.percentage)}%
+                  </div>
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-muted-foreground">
+                    {data.label}
                   </div>
                 </motion.div>
              ))}
-           </div>
-           
-           <div className="flex justify-between text-[10px] text-muted-foreground mt-4 z-10 border-t border-border pt-4 font-bold">
-             <span>08:00</span>
-             <span>12:00</span>
-             <span>16:00</span>
-             <span>20:00</span>
            </div>
         </div>
 
@@ -312,7 +318,7 @@ export default function Dashboard() {
               <div className="text-center py-20 opacity-30">
                 <Calendar className="w-12 h-12 mx-auto mb-3" />
                 <p className="text-sm font-bold">No bookings found</p>
-                <p className="text-[11px] mt-1">Book a room to see it here</p>
+                <p className="text-[11px] mt-1">Personal bookings will appear here</p>
               </div>
             ) : schedule.map((event, i) => (
               <div 
@@ -330,9 +336,9 @@ export default function Dashboard() {
                       <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black border uppercase tracking-wider ${getStatusColor(event.status)}`}>
                         {event.status}
                       </span>
-                      {event.status === 'CONFIRMED' && !isStudent && (
+                      {event.status === 'CONFIRMED' && (
                         <span className="flex items-center gap-1 text-[9px] text-warning font-bold italic animate-pulse">
-                          <QrCode className="w-2.5 h-2.5" /> Tap to scan
+                          <QrCode className="w-2.5 h-2.5" /> View QR
                         </span>
                       )}
                     </div>
@@ -344,7 +350,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Booking Modal */}
+      {/* Booking Modal (Faculty Only) */}
       <AnimatePresence>
         {showBookingModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-background/80 backdrop-blur-sm">
@@ -389,7 +395,7 @@ export default function Dashboard() {
                 
                 {error && (
                   <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mt-4 flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-danger shrink-0" />
+                    <ShieldAlert className="w-5 h-5 text-danger shrink-0" />
                     <p className="text-xs text-danger font-medium">{error}</p>
                   </div>
                 )}
@@ -436,16 +442,16 @@ export default function Dashboard() {
                   <QrCode className="w-8 h-8 text-warning" />
                 </div>
                 <h3 className="text-2xl font-black">{selectedBookingName}</h3>
-                <p className="text-muted-foreground text-xs mt-2 uppercase tracking-widest font-bold">Check-in QR Code</p>
+                <p className="text-muted-foreground text-xs mt-2 uppercase tracking-widest font-bold">Booking QR Code</p>
               </div>
               
               <div className="bg-white p-4 rounded-2xl inline-block shadow-inner mb-6">
-                <img src={selectedQR} alt="Check-in QR Code" className="w-48 h-48" />
+                <img src={selectedQR} alt="QR Code" className="w-48 h-48" />
               </div>
               
               <div className="bg-secondary/50 p-4 rounded-xl text-left border border-border/50">
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  <span className="font-bold text-foreground">INSTRUCTIONS:</span> Show this QR code to any student in your class to confirm your presence. This prevents your booking from being marked as a <span className="text-danger font-bold">Ghost Booking</span>.
+                  <span className="font-bold text-foreground uppercase tracking-wider">Note:</span> Show this code to students to verify your presence. This prevents your booking from becoming a <span className="text-danger font-bold">Ghost Booking</span>.
                 </p>
               </div>
             </motion.div>
