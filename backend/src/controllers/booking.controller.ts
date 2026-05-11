@@ -6,11 +6,10 @@ import QRCode from 'qrcode';
 export const getResources = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const now = new Date();
-    
     const resources = await prisma.resource.findMany({
       include: {
         bookings: {
-          where: { 
+          where: {
             endTime: { gt: now },
             status: { in: ['CONFIRMED', 'ACTIVE', 'GHOST'] }
           },
@@ -18,7 +17,6 @@ export const getResources = async (req: Request, res: Response, next: NextFuncti
         },
       },
     });
-
     res.status(200).json({ status: 'success', data: { resources } });
   } catch (error) {
     next(error);
@@ -32,7 +30,6 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
     const start = new Date(startTime);
     const end = new Date(endTime);
 
-    // Conflict detection
     const conflict = await prisma.booking.findFirst({
       where: {
         resourceId,
@@ -45,9 +42,9 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
     });
 
     if (conflict) {
-      return res.status(409).json({ 
-        status: 'fail', 
-        message: 'This room is already booked for the selected time slot' 
+      return res.status(409).json({
+        status: 'fail',
+        message: 'This room is already booked for the selected time slot'
       });
     }
 
@@ -62,9 +59,7 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
       include: { resource: true },
     });
 
-    // Generate QR Code base64
     const qrCodeBase64 = await QRCode.toDataURL(booking.qrCodeToken);
-
     res.status(201).json({ status: 'success', data: { booking, qrCodeBase64 } });
   } catch (error) {
     next(error);
@@ -80,9 +75,9 @@ export const checkIn = async (req: Request, res: Response, next: NextFunction) =
     if (userRole !== 'student') {
       return res.status(403).json({ status: 'fail', message: 'Only students can confirm faculty presence' });
     }
-    
+
     const booking = await prisma.booking.findUnique({
-      where: { qrCodeToken: token },
+      where: { qrCodeToken: token as string },
       include: { resource: true, user: true }
     });
 
@@ -109,16 +104,15 @@ export const checkIn = async (req: Request, res: Response, next: NextFunction) =
       return res.status(400).json({ status: 'fail', message: 'Check-in window expired' });
     }
 
-    const updatedBooking = await prisma.booking.update({
+    await prisma.booking.update({
       where: { id: booking.id },
-      data: { 
+      data: {
         status: 'ACTIVE',
-        checkedInById: studentId || req.user!.id,
+        checkedInById: (studentId || req.user!.id) as string,
         checkedAt: now
       }
     });
 
-    // Send notification to faculty
     await prisma.notification.create({
       data: {
         userId: booking.userId,
@@ -127,9 +121,9 @@ export const checkIn = async (req: Request, res: Response, next: NextFunction) =
       }
     });
 
-    res.status(200).json({ 
-      status: 'success', 
-      message: `You have confirmed Dr. ${booking.user.name} is present in ${booking.resource.name}` 
+    res.status(200).json({
+      status: 'success',
+      message: `You have confirmed Dr. ${booking.user.name} is present in ${booking.resource.name}`
     });
   } catch (error) {
     next(error);
@@ -145,10 +139,9 @@ export const getUserBookings = async (req: Request, res: Response, next: NextFun
       orderBy: { startTime: 'asc' },
     });
 
-    // For each confirmed booking, generate QR code again if faculty requests
     const bookingsWithQR = await Promise.all(bookings.map(async b => {
       if (b.status === 'CONFIRMED') {
-        const qrCodeBase64 = await QRCode.toDataURL(b.qrCodeToken);
+        const qrCodeBase64 = await QRCode.toDataURL(b.qrCodeToken as string);
         return { ...b, qrCodeBase64 };
       }
       return b;
@@ -162,19 +155,16 @@ export const getUserBookings = async (req: Request, res: Response, next: NextFun
 
 export const deleteBooking = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user!.id;
 
-    const booking = await prisma.booking.findUnique({
-      where: { id },
-    });
+    const booking = await prisma.booking.findUnique({ where: { id } });
 
     if (!booking || booking.userId !== userId) {
       return next(new AppError('Booking not found or unauthorized', 404));
     }
 
     await prisma.booking.delete({ where: { id } });
-
     res.status(200).json({ status: 'success', message: 'Booking cancelled successfully' });
   } catch (error) {
     next(error);
@@ -189,7 +179,6 @@ export const getUserWaitlists = async (req: Request, res: Response, next: NextFu
       include: { resource: true },
       orderBy: { createdAt: 'asc' },
     });
-
     res.status(200).json({ status: 'success', data: { waitlists } });
   } catch (error) {
     next(error);
@@ -201,27 +190,15 @@ export const joinWaitlist = async (req: Request, res: Response, next: NextFuncti
     const { resourceId } = req.body;
     const userId = req.user!.id;
 
-    // Check if already on waitlist
     const existing = await prisma.waitlist.findFirst({
       where: { resourceId, userId }
     });
 
     if (existing) {
-      return res.status(409).json({ 
-        status: 'fail', 
-        message: 'You are already on the waitlist for this resource' 
-      });
+      return res.status(409).json({ status: 'fail', message: 'Already on waitlist for this resource' });
     }
 
-    const waitlist = await prisma.waitlist.create({
-      data: {
-        resourceId,
-        userId,
-        requestedTime: new Date(),
-        status: 'WAITING'
-      },
-      include: { resource: true }
-    });
+    const waitlist = await prisma.waitlist.create({ data: { resourceId, userId, requestedTime: new Date() }, include: { resource: true } });
 
     res.status(201).json({ status: 'success', data: { waitlist } });
   } catch (error) {
@@ -231,21 +208,16 @@ export const joinWaitlist = async (req: Request, res: Response, next: NextFuncti
 
 export const leaveWaitlist = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const userId = req.user!.id;
 
-    const waitlist = await prisma.waitlist.findUnique({
-      where: { id }
-    });
+    const waitlist = await prisma.waitlist.findUnique({ where: { id } });
 
     if (!waitlist || waitlist.userId !== userId) {
       return next(new AppError('Waitlist entry not found or unauthorized', 404));
     }
 
-    await prisma.waitlist.delete({
-      where: { id }
-    });
-
+    await prisma.waitlist.delete({ where: { id } });
     res.status(200).json({ status: 'success', message: 'Left waitlist successfully' });
   } catch (error) {
     next(error);
