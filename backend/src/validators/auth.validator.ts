@@ -8,6 +8,7 @@ export const registerSchema = z.object({
     college: z.string().optional(),
     course: z.string().optional(),
     year: z.number().int().optional(),
+    role: z.string().optional(),
   }),
 });
 

@@ -83,7 +83,7 @@ export const chat = async (req: Request, res: Response, next: NextFunction) => {
           where: {
             startTime: { lte: now },
             endTime: { gte: now },
-            status: { in: ['CONFIRMED', 'CHECKED_IN'] }
+            status: { in: ['CONFIRMED', 'ACTIVE'] }
           },
           include: { user: { select: { name: true } } }
         }

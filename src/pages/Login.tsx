@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams, Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { ArrowRight, GraduationCap, Users } from "lucide-react"
+import { ArrowRight, GraduationCap, Users, AlertCircle } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 import type { Role } from "../store/authStore"
 import { motion, AnimatePresence } from "framer-motion"
@@ -11,16 +11,22 @@ export default function Login() {
   const initialRole = (searchParams.get("role") as Role) || "student"
   const [activeTab, setActiveTab] = useState<Role>(initialRole)
   const { register, handleSubmit } = useForm()
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
   const login = useAuthStore((state) => state.login)
 
   useEffect(() => {
-    if (searchParams.get("role")) {
-      setActiveTab(searchParams.get("role") as Role)
+    const roleParam = searchParams.get("role") as Role
+    if (roleParam && (roleParam === 'student' || roleParam === 'faculty')) {
+      setActiveTab(roleParam)
     }
   }, [searchParams])
 
   const onSubmit = async (data: any) => {
+    setIsLoading(true);
+    setError("");
+    
     try {
       const res = await fetch("http://localhost:3000/api/auth/login", {
         method: "POST",
@@ -30,27 +36,17 @@ export default function Login() {
       const result = await res.json();
       
       if (result.status === 'success') {
-        login(activeTab, result.data.accessToken);
+        // Ensure the role in state matches the role returned or selected
+        const userRole = result.data.user.role || activeTab;
+        login(userRole, result.data.accessToken);
         navigate("/dashboard");
       } else {
-        // Fallback: auto-register for demo purposes
-        const regRes = await fetch("http://localhost:3000/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: activeTab === 'faculty' ? "Faculty User" : "Student User", email: data.email, password: data.password })
-        });
-        const regResult = await regRes.json();
-        
-        if (regResult.status === 'success') {
-          login(activeTab, regResult.data.accessToken);
-          navigate("/dashboard");
-        } else {
-          alert(regResult.message || "Login failed");
-        }
+        setError(result.message || "Invalid email or password");
       }
     } catch (err) {
-      console.error(err);
-      alert("Network error. Is the backend running?");
+      setError("Network error. Is the backend running?");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -151,6 +147,13 @@ export default function Login() {
                 />
               </div>
 
+              {error && (
+                <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-danger shrink-0" />
+                  <p className="text-xs text-danger font-medium">{error}</p>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 pt-2 pb-2">
                 <input type="checkbox" id="remember" className="rounded border-border bg-secondary accent-primary" />
                 <label htmlFor="remember" className="text-sm text-muted-foreground">Remember me for 30 days</label>
@@ -158,15 +161,24 @@ export default function Login() {
 
               <button
                 type="submit"
+                disabled={isLoading}
                 className={`w-full font-medium rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2 mt-2 text-white ${
+                  isLoading ? 'opacity-50 cursor-not-allowed' :
                   activeTab === "faculty"
                     ? "bg-primary hover:bg-primary/90 neon-glow"
                     : "bg-accent hover:bg-accent/90 ai-glow"
                 }`}
               >
-                Sign In to Dashboard <ArrowRight className="w-4 h-4" />
+                {isLoading ? 'Signing In...' : 'Sign In to Dashboard'} <ArrowRight className="w-4 h-4" />
               </button>
             </form>
+
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-primary hover:underline font-medium">
+                Sign up
+              </Link>
+            </p>
           </div>
         </motion.div>
       </AnimatePresence>
