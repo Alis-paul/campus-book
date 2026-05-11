@@ -24,7 +24,7 @@ export default function Signup() {
           name: `${data.firstName} ${data.lastName}`,
           email: data.email,
           password: data.password,
-          role: activeTab,
+          role: data.role, // Will be 'FACULTY' or 'STUDENT'
           college: "VVCE",
           course: data.course || "General",
           year: parseInt(data.year) || 1
@@ -34,7 +34,8 @@ export default function Signup() {
       const result = await res.json();
 
       if (result.status === 'success') {
-        login(activeTab, result.data.accessToken, result.data.user);
+        // Normalize role to lowercase for store
+        login(data.role.toLowerCase(), result.data.accessToken, result.data.user);
         navigate("/dashboard");
       } else {
         setError(result.message || "Registration failed");
@@ -48,38 +49,26 @@ export default function Signup() {
 
   return (
     <div className="w-full max-w-xl mx-auto">
-      {/* Role Selection */}
-      <div className="flex bg-secondary p-1 rounded-xl mb-6 border border-border">
-        <button
-          onClick={() => setActiveTab("student")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "student"
-              ? "bg-card shadow-sm border border-border text-accent ai-glow"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Users className="w-4 h-4" /> Student
-        </button>
-        <button
-          onClick={() => setActiveTab("faculty")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-            activeTab === "faculty"
-              ? "bg-card shadow-sm border border-border text-primary neon-glow"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <GraduationCap className="w-4 h-4" /> Faculty
-        </button>
-      </div>
-
       <div className="glass-card p-8 sm:p-10 rounded-2xl border border-border/50 shadow-2xl relative overflow-hidden">
         <div className={`absolute bottom-0 left-0 w-32 h-32 rounded-full blur-[50px] ${activeTab === 'student' ? 'bg-accent/10' : 'bg-primary/10'}`} />
         
         <div className="relative z-10">
-          <h2 className="text-3xl font-bold mb-2">Create {activeTab === 'faculty' ? 'Faculty' : 'Student'} Account</h2>
+          <h2 className="text-3xl font-bold mb-2">Create Account</h2>
           <p className="text-muted-foreground mb-8 text-sm">Join CampusBook to start booking resources instantly.</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Select Role</label>
+              <select 
+                {...register("role", { required: true })}
+                onChange={(e) => setActiveTab(e.target.value === 'FACULTY' ? 'faculty' : 'student')}
+                className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
+              >
+                <option value="STUDENT">Student</option>
+                <option value="FACULTY">Faculty</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">First Name</label>

@@ -36,7 +36,7 @@ interface BlockData {
 
 export default function CampusMap() {
   const { role, token } = useAuthStore()
-  const isStudent = role === 'student'
+  const isStudent = role?.toLowerCase() === 'student'
   const [resources, setResources] = useState<Room[]>([])
   const [selectedBlock, setSelectedBlock] = useState<BlockData | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())

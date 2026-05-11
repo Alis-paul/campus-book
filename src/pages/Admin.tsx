@@ -45,7 +45,7 @@ export default function Admin() {
     }
   }, [token])
 
-  if (role === 'student') return <Navigate to="/dashboard" replace />
+  if (role?.toLowerCase() === 'student') return <Navigate to="/dashboard" replace />
 
   return (
     <div className="space-y-6">

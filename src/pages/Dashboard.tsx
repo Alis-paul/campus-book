@@ -5,7 +5,7 @@ import { useAuthStore } from "../store/authStore"
 
 export default function Dashboard() {
   const { role, token, user } = useAuthStore()
-  const isStudent = role === 'student'
+  const isStudent = role?.toLowerCase() === 'student'
   const [userBookings, setUserBookings] = useState<any[]>([])
   const [resources, setResources] = useState<any[]>([])
   const [waitlists, setWaitlists] = useState<any[]>([])
@@ -208,7 +208,14 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard Overview</h1>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+              isStudent ? 'bg-accent/20 text-accent border-accent/30' : 'bg-primary/20 text-primary border-primary/30'
+            }`}>
+              {isStudent ? 'Student Portal' : 'Faculty Portal'}
+            </span>
+          </div>
           <p className="text-muted-foreground text-sm">Welcome back, {user?.name}! Real-time campus data loaded.</p>
         </div>
         {!isStudent && (

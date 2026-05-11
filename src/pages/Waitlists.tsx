@@ -53,7 +53,7 @@ export default function Waitlists() {
     }
   }
 
-  if (role === 'student') return <Navigate to="/dashboard" replace />
+  if (role?.toLowerCase() === 'student') return <Navigate to="/dashboard" replace />
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

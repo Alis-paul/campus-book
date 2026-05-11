@@ -25,10 +25,10 @@ export default function Analytics() {
   const fetchData = async () => {
     try {
       const [activityRes, statsRes] = await Promise.all([
-        fetch("http://localhost:3000/api/analytics/activity", {
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/analytics/activity`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch("http://localhost:3000/api/analytics/stats", {
+        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/analytics/stats`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ])
@@ -53,7 +53,7 @@ export default function Analytics() {
     if (token) fetchData()
   }, [token])
 
-  if (role === 'student') return <Navigate to="/dashboard" replace />
+  if (role?.toLowerCase() === 'student') return <Navigate to="/dashboard" replace />
 
   return (
     <div className="space-y-6">

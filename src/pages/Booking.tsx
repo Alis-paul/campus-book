@@ -16,7 +16,7 @@ interface Resource {
 
 export default function Booking() {
   const { role, token } = useAuthStore()
-  const isStudent = role === 'student'
+  const isStudent = role?.toLowerCase() === 'student'
   const [resources, setResources] = useState<Resource[]>([])
   const [selectedResource, setSelectedResource] = useState<string | null>(null)
   const [bookingDate, setBookingDate] = useState("")

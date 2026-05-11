@@ -35,7 +35,7 @@ export function DashboardLayout() {
   }
 
   // Filter nav items based on user role. Default to student if null for safe rendering.
-  const currentRole = role || 'student'
+  const currentRole = (role || 'student').toLowerCase()
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentRole))
 
   return (

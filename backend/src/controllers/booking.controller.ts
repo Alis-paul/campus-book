@@ -110,7 +110,7 @@ export const checkIn = async (req: Request, res: Response, next: NextFunction) =
         status: 'ACTIVE',
         checkedInById: (studentId || req.user!.id) as string,
         checkedAt: now
-      }
+      } as any
     });
 
     await prisma.notification.create({
