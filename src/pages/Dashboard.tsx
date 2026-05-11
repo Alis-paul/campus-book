@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Users, CalendarCheck, Clock, Activity, Info, ShieldAlert, QrCode, X, Calendar } from "lucide-react"
+import { Users, CalendarCheck, Clock, Activity, Info, ShieldAlert, QrCode, X, Calendar as CalendarIcon } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
+import { apiFetch } from "../utils/api"
 
 export default function Dashboard() {
-  const { role, token, user } = useAuthStore()
+  const { role, user } = useAuthStore()
   const isStudent = role?.toLowerCase() === 'student'
   
   // Data States
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [waitlists, setWaitlists] = useState<any[]>([])
   const [campusStats, setCampusStats] = useState<any>(null)
   const [activityStats, setActivityStats] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   // UI States
   const [showBookingModal, setShowBookingModal] = useState(false)
@@ -28,50 +30,34 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  const fetchData = async () => {
-    if (!token) return;
-    try {
-      const headers = { Authorization: `Bearer ${token}` };
-      
-      const [bookingsRes, resourcesRes, waitlistsRes, statsRes, activityRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, { headers }),
-        fetch(`${import.meta.env.VITE_API_URL}/api/bookings/resources`, { headers }),
-        fetch(`${import.meta.env.VITE_API_URL}/api/bookings/waitlists`, { headers }),
-        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/stats`, { headers }),
-        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/activity`, { headers })
-      ]);
+  const fetchData = useCallback(async () => {
+    const [bookingsRes, resourcesRes, waitlistsRes, statsRes, activityRes] = await Promise.all([
+      apiFetch('/api/bookings'),
+      apiFetch('/api/bookings/resources'),
+      apiFetch('/api/bookings/waitlists'),
+      apiFetch('/api/analytics/stats'),
+      apiFetch('/api/analytics/activity')
+    ]);
 
-      const [bookingsJson, resourcesJson, waitlistsJson, statsJson, activityJson] = await Promise.all([
-        bookingsRes.json(),
-        resourcesRes.json(),
-        waitlistsRes.json(),
-        statsRes.json(),
-        activityRes.json()
-      ]);
-
-      if (bookingsJson.status === 'success') setUserBookings(bookingsJson.data.bookings);
-      if (resourcesJson.status === 'success') setResources(resourcesJson.data.resources);
-      if (waitlistsJson.status === 'success') setWaitlists(waitlistsJson.data.waitlists);
-      if (statsJson.status === 'success') setCampusStats(statsJson.data.summary);
-      if (activityJson.status === 'success') setActivityStats(activityJson.data.chartData);
-
-    } catch (err) {
-      console.error("Dashboard fetch error:", err);
-    }
-  };
+    if (bookingsRes.status === 'success') setUserBookings(bookingsRes.data.bookings);
+    if (resourcesRes.status === 'success') setResources(resourcesRes.data.resources);
+    if (waitlistsRes.status === 'success') setWaitlists(waitlistsRes.data.waitlists);
+    if (statsRes.status === 'success') setCampusStats(statsRes.data.summary);
+    if (activityRes.status === 'success') setActivityStats(activityRes.data.chartData);
+    
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     fetchData();
-    // Refresh every 30 seconds for live updates
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [fetchData]);
 
   const stats = useMemo(() => {
     const totalCampusBookings = campusStats?.bookings || 0;
-    const activeResources = resources.length;
+    const activeResCount = resources.length;
     
-    // Occupancy Calculation
     const now = new Date();
     const occupiedCount = resources.filter(r => 
       r.bookings?.some((b: any) => 
@@ -80,53 +66,26 @@ export default function Dashboard() {
         ['CONFIRMED', 'ACTIVE'].includes(b.status)
       )
     ).length;
-    const occupancyRate = activeResources > 0 ? Math.round((occupiedCount / activeResources) * 100) : 0;
-
-    // Real Wait Time based on waitlist length (approx 15m per person)
+    
+    const occupancyRate = activeResCount > 0 ? Math.round((occupiedCount / activeResCount) * 100) : 0;
     const activeWaitlist = waitlists.filter(w => w.status === 'WAITING').length;
     const avgWaitMinutes = activeWaitlist * 15;
 
     return [
-      { 
-        label: "Campus Bookings", 
-        value: totalCampusBookings.toString(), 
-        change: "Today", 
-        icon: CalendarCheck, 
-        trend: "up" 
-      },
-      { 
-        label: "Active Resources", 
-        value: activeResources.toString(), 
-        change: "Live", 
-        icon: Activity, 
-        trend: "up" 
-      },
-      { 
-        label: "Occupancy Rate", 
-        value: `${occupancyRate}%`, 
-        change: occupancyRate > 70 ? "High" : "Optimal", 
-        icon: Users, 
-        trend: occupancyRate > 70 ? "up" : "down" 
-      },
-      { 
-        label: "Est. Wait Time", 
-        value: `${avgWaitMinutes}m`, 
-        change: activeWaitlist > 0 ? "Queued" : "None", 
-        icon: Clock, 
-        trend: activeWaitlist > 0 ? "up" : "down" 
-      },
+      { label: "Campus Bookings", value: totalCampusBookings.toString(), change: "Today", icon: CalendarCheck, trend: "up" },
+      { label: "Active Resources", value: activeResCount.toString(), change: "Live", icon: Activity, trend: "up" },
+      { label: "Occupancy Rate", value: `${occupancyRate}%`, change: occupancyRate > 70 ? "High" : "Optimal", icon: Users, trend: occupancyRate > 70 ? "up" : "down" },
+      { label: "Est. Wait Time", value: `${avgWaitMinutes}m`, change: activeWaitlist > 0 ? "Queued" : "None", icon: Clock, trend: activeWaitlist > 0 ? "up" : "down" },
     ]
   }, [campusStats, resources, waitlists]);
 
   const utilizationData = useMemo(() => {
-    // If we have activityStats from the backend, use those first
     if (activityStats.length > 0) {
-      // Map to percentage for the bars
       const maxBookings = Math.max(...activityStats.map(d => d.bookings), 1);
       return activityStats.map((d, i) => ({
-        hour: i, // Placeholder for index/day mapping
+        hour: i,
         percentage: (d.bookings / maxBookings) * 100,
-        label: d.date.split('-').slice(1).join('/') // MM/DD
+        label: d.date.split('-').slice(1).join('/')
       }));
     }
     return [];
@@ -142,7 +101,6 @@ export default function Dashboard() {
       return;
     }
 
-    // Construct local datetime
     const start = new Date(`${bookingDate}T${startTime}:00`);
     const end = new Date(`${bookingDate}T${endTime}:00`);
 
@@ -158,37 +116,23 @@ export default function Dashboard() {
       return;
     }
 
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({ 
-          resourceId: selectedResourceId, 
-          startTime: start.toISOString(), 
-          endTime: end.toISOString() 
-        })
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        setShowBookingModal(false);
-        fetchData(); // Immediate refresh
-        
-        if (data.data.qrCodeBase64) {
-          setSelectedQR(data.data.qrCodeBase64);
-          setSelectedBookingName(data.data.booking.resource.name);
-          setShowQRModal(true);
-        }
-      } else {
-        setError(data.message || "Booking failed");
+    const result = await apiFetch('/api/bookings', {
+      method: "POST",
+      body: { resourceId: selectedResourceId, startTime: start.toISOString(), endTime: end.toISOString() }
+    });
+
+    if (result.status === 'success') {
+      setShowBookingModal(false);
+      fetchData();
+      if (result.data.qrCodeBase64) {
+        setSelectedQR(result.data.qrCodeBase64);
+        setSelectedBookingName(result.data.booking.resource.name);
+        setShowQRModal(true);
       }
-    } catch (err) {
-      setError("Network error occurred");
-    } finally {
-      setSubmitting(false);
+    } else {
+      setError(result.message || "Booking failed");
     }
+    setSubmitting(false);
   }
 
   const schedule = userBookings
@@ -283,10 +227,16 @@ export default function Dashboard() {
            </h3>
            
            <div className="flex-1 flex items-end justify-between px-4 z-10 relative">
-             {utilizationData.length === 0 ? (
+             {loading ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+                  <Activity className="w-12 h-12 mb-2 animate-pulse" />
+                  <p className="font-bold">Syncing data...</p>
+                </div>
+             ) : utilizationData.length === 0 ? (
                <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30">
-                 <Activity className="w-12 h-12 mb-2" />
-                 <p className="font-bold">Loading activity data...</p>
+                 <CalendarIcon className="w-12 h-12 mb-2" />
+                 <p className="font-bold">No activity recorded</p>
+                 <p className="text-xs">Data will appear as bookings are made</p>
                </div>
              ) : utilizationData.map((data, i) => (
                 <motion.div 
@@ -308,15 +258,21 @@ export default function Dashboard() {
         </div>
 
         {/* Your Schedule */}
-        <div className="glass-card rounded-xl border border-border p-5 flex flex-col">
+        <div className="glass-card rounded-xl border border-border p-5 flex flex-col h-[400px]">
           <h3 className="font-bold mb-4 text-sm flex items-center justify-between">
             Your Schedule
             <span className="text-[10px] text-primary uppercase font-bold tracking-widest animate-pulse">Live</span>
           </h3>
           <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-            {schedule.length === 0 ? (
+            {loading ? (
+               <div className="space-y-4">
+                 {[1,2,3].map(i => (
+                   <div key={i} className="h-20 bg-secondary/50 rounded-xl animate-pulse" />
+                 ))}
+               </div>
+            ) : schedule.length === 0 ? (
               <div className="text-center py-20 opacity-30">
-                <Calendar className="w-12 h-12 mx-auto mb-3" />
+                <CalendarIcon className="w-12 h-12 mx-auto mb-3" />
                 <p className="text-sm font-bold">No bookings found</p>
                 <p className="text-[11px] mt-1">Personal bookings will appear here</p>
               </div>
@@ -370,7 +326,7 @@ export default function Dashboard() {
                   <select 
                     value={selectedResourceId} 
                     onChange={(e) => setSelectedResourceId(e.target.value)}
-                    className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+                    className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none"
                   >
                     <option value="">Choose a room...</option>
                     {resources.map(r => (
@@ -380,16 +336,16 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Date</label>
-                  <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                  <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Start Time</label>
-                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">End Time</label>
-                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary outline-none" />
                   </div>
                 </div>
                 

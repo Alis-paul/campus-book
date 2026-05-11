@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Filter, Users, MapPin, AlertCircle, Info, Clock } from "lucide-react"
+import { Search, Filter, Users, MapPin, AlertCircle, Info, Clock, CheckCircle2 } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
+import { apiFetch } from "../utils/api"
 
 interface Resource {
   id: string;
@@ -15,7 +16,7 @@ interface Resource {
 }
 
 export default function Booking() {
-  const { role, token } = useAuthStore()
+  const { role } = useAuthStore()
   const isStudent = role?.toLowerCase() === 'student'
   const [resources, setResources] = useState<Resource[]>([])
   const [selectedResource, setSelectedResource] = useState<string | null>(null)
@@ -35,29 +36,19 @@ export default function Booking() {
   const [capacityFilter, setCapacityFilter] = useState("Any Capacity")
   const [blockFilter, setBlockFilter] = useState("All Blocks")
   
-  const fetchResources = async () => {
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/resources`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const data = await res.json()
-      if (data.status === 'success') {
-        setResources(data.data.resources)
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
+  const fetchResources = useCallback(async () => {
+    const result = await apiFetch('/api/bookings/resources');
+    if (result.status === 'success') {
+      setResources(result.data.resources);
     }
-  }
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    if (token) {
-      fetchResources()
-      const interval = setInterval(fetchResources, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [token])
+    fetchResources();
+    const interval = setInterval(fetchResources, 30000);
+    return () => clearInterval(interval);
+  }, [fetchResources]);
 
   const filteredResources = resources.filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -82,26 +73,11 @@ export default function Booking() {
       return;
     }
 
-    const now = new Date();
-    // Construct local datetime (no 'Z' suffix) so it uses local timezone
     const start = new Date(`${bookingDate}T${startTime}:00`);
     const end = new Date(`${bookingDate}T${endTime}:00`);
 
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      setError("Invalid date or time");
-      setSubmitting(false);
-      return;
-    }
-
-    if (start < now) {
+    if (start < new Date()) {
       setError("Start time must be in the future");
-      setSubmitting(false);
-      return;
-    }
-
-    const fifteenMinsFromNow = new Date(now.getTime() + 15 * 60000);
-    if (start < fifteenMinsFromNow) {
-      setError("Start time must be at least 15 minutes from now");
       setSubmitting(false);
       return;
     }
@@ -112,33 +88,23 @@ export default function Booking() {
       return;
     }
 
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({ resourceId: selectedResource, startTime: start.toISOString(), endTime: end.toISOString() })
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        setQrCodeData(data.data.qrCodeBase64);
-        setShowQrModal(true);
-        setSelectedResource(null);
-        setBookingDate("");
-        setStartTime("");
-        setEndTime("");
-        fetchResources();
-      } else {
-        setError(data.message || "Booking failed");
-      }
-    } catch (err) {
-      setError("Network error occurred");
-      console.error(err);
-    } finally {
-      setSubmitting(false);
+    const result = await apiFetch('/api/bookings', {
+      method: "POST",
+      body: { resourceId: selectedResource, startTime: start.toISOString(), endTime: end.toISOString() }
+    });
+
+    if (result.status === 'success') {
+      setQrCodeData(result.data.qrCodeBase64);
+      setShowQrModal(true);
+      setSelectedResource(null);
+      setBookingDate("");
+      setStartTime("");
+      setEndTime("");
+      fetchResources();
+    } else {
+      setError(result.message || "Booking failed");
     }
+    setSubmitting(false);
   }
 
   return (
@@ -151,7 +117,7 @@ export default function Booking() {
       </div>
 
       {isStudent && (
-        <div className="bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3">
+        <div className="bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3 shadow-sm shadow-accent/5">
           <Info className="w-5 h-5 text-accent shrink-0 mt-0.5" />
           <div>
             <h3 className="font-semibold text-accent text-sm">Viewing Only Mode</h3>
@@ -171,14 +137,14 @@ export default function Booking() {
             placeholder="Search by name or location..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-secondary border border-border rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-primary/50 text-foreground placeholder:text-muted-foreground"
+            className="w-full bg-secondary border border-border rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground transition-all"
           />
         </div>
         <div className="flex flex-wrap gap-2">
           <select 
             value={blockFilter}
             onChange={(e) => setBlockFilter(e.target.value)}
-            className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 text-foreground"
+            className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground outline-none transition-all"
           >
             <option>All Blocks</option>
             <option>A Block</option>
@@ -193,7 +159,7 @@ export default function Booking() {
           <select 
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 text-foreground"
+            className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground outline-none transition-all"
           >
             <option>All Types</option>
             <option>Seminar Hall</option>
@@ -201,19 +167,10 @@ export default function Booking() {
             <option>Classroom</option>
             <option>Auditorium</option>
           </select>
-          <select 
-            value={capacityFilter}
-            onChange={(e) => setCapacityFilter(e.target.value)}
-            className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 text-foreground"
-          >
-            <option>Any Capacity</option>
-            <option>1-10</option>
-            <option>11-50</option>
-            <option>50+</option>
-          </select>
           <button 
             onClick={() => {setSearchTerm(""); setTypeFilter("All Types"); setCapacityFilter("Any Capacity"); setBlockFilter("All Blocks");}}
             className="bg-secondary border border-border p-2 rounded-lg hover:bg-secondary/80 transition-colors"
+            title="Reset Filters"
           >
             <Filter className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -223,28 +180,24 @@ export default function Booking() {
       {/* Resource Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loading ? (
-          [1,2,3].map(i => (
+          [1,2,3,4,5,6].map(i => (
             <div key={i} className="glass-card h-[400px] rounded-xl border border-border animate-pulse bg-secondary/20" />
           ))
         ) : filteredResources.length > 0 ? (
           filteredResources.map((resource, i) => {
           const now = new Date();
-          
-          // Find if there's a booking happening RIGHT NOW
-          // Filter out expired ones just in case, though backend should handle it
           const activeBookings = (resource.bookings || [])
             .filter(b => new Date(b.startTime) <= now && new Date(b.endTime) >= now)
             .sort((a, b) => {
-              // Priority: CHECKED_IN > CONFIRMED > CANCELLED
-              const p: Record<string, number> = { 'CHECKED_IN': 0, 'CONFIRMED': 1, 'CANCELLED': 2 };
-              return (p[a.status as keyof typeof p] ?? 3) - (p[b.status as keyof typeof p] ?? 3);
+              const p: Record<string, number> = { 'ACTIVE': 0, 'CONFIRMED': 1, 'GHOST': 2, 'CANCELLED': 3 };
+              return (p[a.status as keyof typeof p] ?? 4) - (p[b.status as keyof typeof p] ?? 4);
             });
 
           const currentBooking = activeBookings[0];
           
           let displayStatus = 'Free';
           let badgeStyle = 'bg-secondary/20 text-muted-foreground border-border/30';
-          let statusText = 'no class scheduled right now';
+          let statusText = 'No class scheduled right now';
 
           if (currentBooking) {
             const timeStr = `${new Date(currentBooking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(currentBooking.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -252,19 +205,15 @@ export default function Booking() {
             if (currentBooking.status === 'ACTIVE') {
               displayStatus = 'Active';
               badgeStyle = 'bg-success/20 text-success border-success/30';
-              statusText = `${currentBooking.user.name} | ${timeStr} — student confirmed, class ongoing`;
+              statusText = `${currentBooking.user.name} | ${timeStr} — Verified Presence`;
             } else if (currentBooking.status === 'CONFIRMED') {
               displayStatus = 'Confirmed';
               badgeStyle = 'bg-warning/20 text-warning border-warning/30';
-              statusText = `${currentBooking.user.name} | ${timeStr} — faculty booked, waiting for confirmation`;
+              statusText = `${currentBooking.user.name} | ${timeStr} — Pending Check-in`;
             } else if (currentBooking.status === 'GHOST') {
               displayStatus = 'Ghost';
               badgeStyle = 'bg-danger/20 text-danger border-danger/30';
-              statusText = `Room is Free — no confirmation within 15 mins (Ghost Booking)`;
-            } else if (currentBooking.status === 'CANCELLED') {
-              displayStatus = 'Free';
-              badgeStyle = 'bg-secondary/20 text-muted-foreground border-border/30';
-              statusText = 'Booking was cancelled';
+              statusText = `Room is Free — Faculty did not check in within 15 mins`;
             }
           }
           
@@ -276,17 +225,17 @@ export default function Booking() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.05 }}
-              className="glass-card rounded-xl border border-border overflow-hidden flex flex-col group relative"
+              className="glass-card rounded-xl border border-border overflow-hidden flex flex-col group relative hover:border-primary/30 transition-all duration-300 shadow-lg hover:shadow-primary/5"
             >
-              {/* Image & Status Badge */}
               <div className="h-40 overflow-hidden relative">
                 <img 
                   src={resource.imageUrl || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000"} 
                   alt={resource.name} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 opacity-70"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-60"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                 <div className="absolute top-3 right-3 flex gap-2">
-                  <span className={`px-2.5 py-1 rounded-md text-xs font-semibold shadow-lg backdrop-blur-md flex items-center gap-1.5 ${badgeStyle}`}>
+                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase shadow-lg backdrop-blur-md flex items-center gap-1.5 border ${badgeStyle}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${
                       displayStatus === 'Active' ? 'bg-success animate-pulse' : 
                       displayStatus === 'Confirmed' ? 'bg-yellow-500 animate-bounce' :
@@ -297,54 +246,55 @@ export default function Booking() {
                 </div>
               </div>
               
-              <div className="p-5 flex-1 flex flex-col">
-                {/* Status Text for Students/Faculty */}
-                <div className="mb-4 bg-secondary/50 rounded-lg p-3 border border-border/30">
-                  <p className="text-xs font-medium text-foreground leading-relaxed">
+              <div className="p-5 flex-1 flex flex-col relative z-10 -mt-10">
+                <div className="mb-4 bg-card/80 backdrop-blur-sm rounded-lg p-3 border border-border/50 shadow-sm">
+                  <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Status</p>
+                  <p className="text-xs font-medium text-foreground/90 leading-relaxed truncate">
                     {statusText}
                   </p>
                 </div>
 
-                {/* Header Info */}
                 <div className="mb-4">
-                  <h3 className="font-bold text-xl leading-tight text-foreground">{resource.name}</h3>
-                  <div className="flex items-center text-sm text-muted-foreground mt-1 gap-2">
-                    <span className="bg-secondary/80 px-2 py-0.5 rounded text-xs font-medium border border-border/50">{resource.type}</span>
-                    <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1 text-primary" /> {resource.location}</span>
-                    <span className="flex items-center"><Users className="w-3.5 h-3.5 mr-1 text-muted-foreground" /> {resource.capacity}</span>
+                  <h3 className="font-bold text-xl leading-tight text-foreground group-hover:text-primary transition-colors">{resource.name}</h3>
+                  <div className="flex flex-wrap items-center text-[11px] text-muted-foreground mt-2 gap-3">
+                    <span className="bg-secondary/80 px-2 py-0.5 rounded font-bold border border-border/50 text-foreground/70">{resource.type}</span>
+                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-primary" /> {resource.location}</span>
+                    <span className="flex items-center gap-1"><Users className="w-3 h-3 text-muted-foreground" /> {resource.capacity} Seats</span>
                   </div>
                 </div>
                 
                 <div className="space-y-2 flex-1 bg-secondary/10 rounded-lg p-3 border border-border/10 mt-2">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Today's Schedule</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-black mb-2 opacity-50">Today's Schedule</p>
                   {(resource.bookings || []).filter(b => new Date(b.startTime).toDateString() === now.toDateString()).length > 0 ? (
                     (resource.bookings || [])
                       .filter(b => new Date(b.startTime).toDateString() === now.toDateString())
                       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
                       .map((b, idx) => (
-                        <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded ${new Date(b.startTime) <= now && new Date(b.endTime) >= now ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/50 opacity-70'}`}>
+                        <div key={idx} className={`flex items-center justify-between text-[11px] p-2 rounded-lg ${new Date(b.startTime) <= now && new Date(b.endTime) >= now ? 'bg-primary/10 border border-primary/20 text-primary' : 'bg-secondary/30 opacity-60'}`}>
                           <div className="flex items-center gap-2">
-                            <Clock className={`w-3 h-3 ${new Date(b.startTime) <= now && new Date(b.endTime) >= now ? 'text-primary' : 'text-muted-foreground'}`} />
-                            <span className="font-medium text-foreground">
+                            <Clock className="w-3 h-3" />
+                            <span className="font-bold">
                               {new Date(b.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(b.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          <span className="text-muted-foreground font-medium">{b.user.name}</span>
+                          <span className="font-black uppercase tracking-tighter opacity-70">{b.user.name.split(' ')[0]}</span>
                         </div>
                       ))
                   ) : (
-                    <p className="text-xs text-muted-foreground italic py-2">No bookings for today</p>
+                    <div className="flex flex-col items-center justify-center py-4 opacity-30">
+                       <CheckCircle2 className="w-5 h-5 mb-1" />
+                       <p className="text-[10px] font-bold">Open Access Available</p>
+                    </div>
                   )}
                 </div>
 
-                {/* Action Buttons */}
                 {canBook && (
-                  <div className="mt-5 pt-4 border-t border-border flex justify-end items-center">
+                  <div className="mt-5 pt-4 border-t border-border/30 flex justify-end items-center">
                     <button 
                       onClick={() => setSelectedResource(resource.id)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all bg-primary text-primary-foreground hover:bg-primary/90 neon-glow"
+                      className="px-5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all bg-primary text-primary-foreground hover:bg-primary/90 neon-glow"
                     >
-                      Book Now
+                      Book Resource
                     </button>
                   </div>
                 )}
@@ -353,10 +303,16 @@ export default function Booking() {
           );
         })
         ) : (
-          <div className="col-span-full py-20 text-center glass-card rounded-xl border border-border">
-            <Info className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-            <h3 className="text-lg font-medium text-foreground">No resources found</h3>
-            <p className="text-muted-foreground">Try adjusting your filters or check back later.</p>
+          <div className="col-span-full py-32 text-center glass-card rounded-2xl border border-border/50">
+            <Info className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-10" />
+            <h3 className="text-xl font-bold text-foreground">No resources found</h3>
+            <p className="text-muted-foreground text-sm max-w-xs mx-auto mt-2">We couldn't find any resources matching your current search and filters.</p>
+            <button 
+               onClick={() => {setSearchTerm(""); setTypeFilter("All Types");}}
+               className="mt-6 text-primary font-bold text-xs hover:underline uppercase tracking-widest"
+            >
+              Clear All Filters
+            </button>
           </div>
         )}
       </div>
@@ -371,51 +327,46 @@ export default function Booking() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl overflow-hidden"
             >
-              <div className="p-6 border-b border-border">
-                <h3 className="font-bold text-lg">Confirm Booking</h3>
-                <p className="text-sm text-muted-foreground">Select your time slot for {resources.find(r => r.id === selectedResource)?.name}</p>
+              <div className="p-6 border-b border-border bg-secondary/30">
+                <h3 className="font-bold text-lg">Confirm Reservation</h3>
+                <p className="text-sm text-muted-foreground">Booking for: <span className="text-foreground font-bold">{resources.find(r => r.id === selectedResource)?.name}</span></p>
               </div>
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Date</label>
-                  <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                  <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Date</label>
+                  <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Start Time</label>
-                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Start Time</label>
+                    <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">End Time</label>
-                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground" />
+                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">End Time</label>
+                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                 </div>
                 
                 {error && (
-                  <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 mt-4 flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-danger shrink-0" />
-                    <p className="text-xs text-danger font-medium">{error}</p>
+                  <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 flex gap-3">
+                    <AlertCircle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
+                    <p className="text-xs text-danger font-bold leading-relaxed">{error}</p>
                   </div>
                 )}
-                
-                <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 mt-4 flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-accent shrink-0" />
-                  <p className="text-xs text-muted-foreground">AI suggests booking 15 mins earlier to avoid the lunch rush at the adjacent cafeteria.</p>
-                </div>
               </div>
-              <div className="p-6 border-t border-border flex justify-end gap-3 bg-secondary/50">
+              <div className="p-6 border-t border-border flex justify-end gap-3 bg-secondary/20">
                 <button 
                   onClick={() => setSelectedResource(null)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary transition-colors"
+                  className="px-5 py-2 rounded-lg text-xs font-bold hover:bg-secondary transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleBooking}
                   disabled={submitting}
-                  className={`px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium transition-all ${submitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/90 neon-glow'}`}
+                  className={`px-6 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-black uppercase tracking-widest transition-all ${submitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/90 neon-glow'}`}
                 >
-                  {submitting ? 'Confirming...' : 'Confirm Booking'}
+                  {submitting ? 'Processing...' : 'Confirm'}
                 </button>
               </div>
             </motion.div>
@@ -431,29 +382,31 @@ export default function Booking() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-card w-full max-w-sm rounded-3xl border border-border shadow-2xl overflow-hidden text-center p-8"
+              className="bg-card w-full max-w-sm rounded-3xl border border-border shadow-2xl overflow-hidden text-center p-8 relative"
             >
               <div className="mb-6">
-                <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Clock className="w-8 h-8 text-success" />
+                <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-success/30 shadow-lg shadow-success/10">
+                  <CheckCircle2 className="w-8 h-8 text-success" />
                 </div>
-                <h3 className="text-2xl font-bold">Booking Confirmed!</h3>
-                <p className="text-muted-foreground text-sm mt-2">Your spot is reserved. Please check in within 15 minutes of your start time.</p>
+                <h3 className="text-2xl font-black">Success!</h3>
+                <p className="text-muted-foreground text-xs mt-3 uppercase tracking-widest font-bold">Booking Confirmed</p>
               </div>
               
-              <div className="bg-white p-4 rounded-2xl inline-block shadow-inner mb-6">
+              <div className="bg-white p-4 rounded-2xl inline-block shadow-2xl border border-border mb-6">
                 <img src={qrCodeData} alt="Check-in QR Code" className="w-48 h-48" />
               </div>
               
-              <p className="text-xs text-muted-foreground mb-8">
-                Show this QR code at the room entrance to check in.
-              </p>
+              <div className="bg-secondary/50 p-4 rounded-2xl text-left border border-border/50 mb-8">
+                 <p className="text-[10px] text-muted-foreground leading-relaxed font-medium">
+                   Your resource is reserved. Please scan this code at the entrance within **15 minutes** of the start time to confirm your presence.
+                 </p>
+              </div>
               
               <button 
                 onClick={() => setShowQrModal(false)}
-                className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase tracking-widest hover:bg-primary/90 transition-all shadow-xl shadow-primary/20"
               >
-                Got it
+                Close Receipt
               </button>
             </motion.div>
           </div>

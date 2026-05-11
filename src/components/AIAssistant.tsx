@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Bot, X, Send, Sparkles, Loader2 } from "lucide-react"
-import { useAuthStore } from "../store/authStore"
+import { apiFetch } from "../utils/api"
 
 export default function AIAssistant() {
-  const { token } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([
     { role: "ai", content: "Hi! I'm your CampusBook AI. I can help you find rooms, check availability, or answer questions about campus facilities." }
@@ -19,7 +18,7 @@ export default function AIAssistant() {
     }
   }, [messages, isLoading])
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return
     
     const userMessage = input.trim()
@@ -27,36 +26,18 @@ export default function AIAssistant() {
     setInput("")
     setIsLoading(true)
     
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/ai/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ message: userMessage })
-      })
-      
-      const data = await res.json()
-      
-      if (data.status === 'success') {
-        setMessages(prev => [...prev, { 
-          role: "ai", 
-          content: data.data.reply 
-        }])
-      } else {
-        throw new Error(data.message)
-      }
-    } catch (err) {
-      console.error("Chatbot error:", err)
-      setMessages(prev => [...prev, { 
-        role: "ai", 
-        content: "Sorry, I could not process your request right now. Please try again later." 
-      }])
-    } finally {
-      setIsLoading(false)
+    const data = await apiFetch('/api/ai/chat', {
+      method: "POST",
+      body: { message: userMessage }
+    });
+
+    if (data.status === 'success') {
+      setMessages(prev => [...prev, { role: "ai", content: data.data.reply }]);
+    } else {
+      setMessages(prev => [...prev, { role: "ai", content: "Sorry, I could not process your request right now. Please try again later." }]);
     }
-  }
+    setIsLoading(false);
+  }, [input, isLoading]);
 
   return (
     <>
@@ -106,7 +87,7 @@ export default function AIAssistant() {
                   <div className={`max-w-[85%] rounded-2xl p-3 text-sm flex gap-3 ${
                     msg.role === 'user' 
                       ? 'bg-primary text-primary-foreground rounded-tr-none' 
-                      : 'bg-secondary border border-border text-foreground rounded-tl-none'
+                      : 'bg-secondary border border-border text-foreground rounded-tl-none shadow-sm'
                   }`}>
                     <div className="flex-1">
                       {msg.role === 'ai' && <Sparkles className="w-3 h-3 text-accent inline mr-2 mb-1" />}
@@ -135,7 +116,7 @@ export default function AIAssistant() {
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   disabled={isLoading}
                   placeholder="Ask about available rooms..."
-                  className="flex-1 bg-secondary border border-border rounded-full px-4 py-2 text-sm focus:outline-none focus:border-primary/50 text-foreground placeholder:text-muted-foreground disabled:opacity-50"
+                  className="flex-1 bg-secondary border border-border rounded-full px-4 py-2 text-sm focus:outline-none focus:border-primary/50 text-foreground placeholder:text-muted-foreground disabled:opacity-50 transition-all"
                 />
                 <button 
                   onClick={handleSend}

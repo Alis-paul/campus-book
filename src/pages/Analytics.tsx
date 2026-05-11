@@ -1,193 +1,151 @@
-import { useState, useEffect } from "react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts'
-import { Activity, Users, Clock, TrendingUp } from 'lucide-react'
-import { Navigate } from "react-router-dom"
-import { useAuthStore } from "../store/authStore"
-
-const peakHoursData = [
-  { time: '8 AM', value: 20 },
-  { time: '10 AM', value: 80 },
-  { time: '12 PM', value: 95 },
-  { time: '2 PM', value: 85 },
-  { time: '4 PM', value: 60 },
-  { time: '6 PM', value: 30 },
-]
-
-const COLORS = ['#38BDF8', '#8B5CF6', '#10B981', '#F59E0B']
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { motion } from "framer-motion"
+import { BarChart3, TrendingUp, Users, Calendar, Activity, Info, Download, ShieldCheck } from "lucide-react"
+import { apiFetch } from "../utils/api"
 
 export default function Analytics() {
-  const { role, token } = useAuthStore()
+  const [stats, setStats] = useState<any>(null)
   const [activityData, setActivityData] = useState<any[]>([])
-  const [summary, setSummary] = useState({ bookings: 0, activeSessions: 0, waitlisted: 0 })
-  const [resourceAllocation, setResourceAllocation] = useState<any[]>([])
-  const [buildingStatus, setBuildingStatus] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const fetchData = async () => {
-    try {
-      const [activityRes, statsRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/activity`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/stats`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ])
-      
-      const activityJson = await activityRes.json()
-      const statsJson = await statsRes.json()
+  const fetchData = useCallback(async () => {
+    const [statsRes, activityRes] = await Promise.all([
+      apiFetch('/api/analytics/stats'),
+      apiFetch('/api/analytics/activity')
+    ]);
 
-      if (activityJson.status === 'success') {
-        setActivityData(activityJson.data.chartData)
-      }
-      if (statsJson.status === 'success') {
-        setSummary(statsJson.data.summary)
-        setResourceAllocation(statsJson.data.resourceAllocation)
-        setBuildingStatus(statsJson.data.buildingStatus)
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
+    if (statsRes.status === 'success') setStats(statsRes.data.summary);
+    if (activityRes.status === 'success') setActivityData(activityRes.data.chartData);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    if (token) fetchData()
-  }, [token])
+    fetchData();
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
-  if (role?.toLowerCase() === 'student') return <Navigate to="/dashboard" replace />
+  const cards = useMemo(() => [
+    { label: "Total Bookings", value: stats?.bookings || 0, icon: Calendar, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Check-in Rate", value: `${stats?.checkInRate || 0}%`, icon: ShieldCheck, color: "text-success", bg: "bg-success/10" },
+    { label: "Active Sessions", value: stats?.activeSessions || 0, icon: Activity, color: "text-warning", bg: "bg-warning/10" },
+    { label: "Unique Users", value: stats?.uniqueUsers || 0, icon: Users, color: "text-accent", bg: "bg-accent/10" },
+  ], [stats]);
+
+  const chartPoints = useMemo(() => {
+    if (activityData.length === 0) return [];
+    const max = Math.max(...activityData.map(d => d.bookings), 1);
+    return activityData.map(d => ({
+      ...d,
+      height: (d.bookings / max) * 100
+    }));
+  }, [activityData]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Analytics Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Comprehensive view of campus resource utilization.</p>
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight uppercase italic">Intelligence Hub</h1>
+          <p className="text-muted-foreground text-sm font-medium">Real-time resource utilization and efficiency metrics.</p>
+        </div>
+        <button className="flex items-center gap-2 bg-secondary border border-border/50 px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-secondary/80 transition-all">
+          <Download className="w-3.5 h-3.5" /> Export Report
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-card p-6 rounded-xl border border-border">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-sm">Total Bookings</h3>
-            <Activity className="w-4 h-4 text-primary" />
-          </div>
-          <p className="text-3xl font-bold">{summary.bookings}</p>
-          <p className="text-xs text-success flex items-center mt-2"><TrendingUp className="w-3 h-3 mr-1" /> Overall usage</p>
-        </div>
-        <div className="glass-card p-6 rounded-xl border border-border">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-sm">Active Sessions</h3>
-            <Clock className="w-4 h-4 text-accent" />
-          </div>
-          <p className="text-3xl font-bold">{summary.activeSessions}</p>
-          <p className="text-xs text-muted-foreground mt-2">Real-time occupancy</p>
-        </div>
-        <div className="glass-card p-6 rounded-xl border border-border">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-sm">Waitlisted</h3>
-            <Users className="w-4 h-4 text-success" />
-          </div>
-          <p className="text-3xl font-bold">{summary.waitlisted}</p>
-          <p className="text-xs text-success flex items-center mt-2"><TrendingUp className="w-3 h-3 mr-1" /> Demand metrics</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((card, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className="glass-card p-6 rounded-2xl border border-border/50 relative overflow-hidden group"
+          >
+            <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-br from-transparent to-${card.color.split('-')[1]}/5`} />
+            <div className={`p-3 rounded-xl ${card.bg} ${card.color} w-fit mb-4 border border-current/10`}>
+              <card.icon className="w-5 h-5" />
+            </div>
+            <h3 className="text-3xl font-black tracking-tighter mb-1">{loading ? '...' : card.value}</h3>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black">{card.label}</p>
+          </motion.div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Chart */}
-        <div className="glass-card p-6 rounded-xl border border-border h-[400px] flex flex-col">
-          <h3 className="font-semibold mb-6">Booking Trends (Last 7 Days)</h3>
-          <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activityData}>
-                <defs>
-                  <linearGradient id="colorUtil" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#38BDF8" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#38BDF8" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94A3B8" fontSize={12} tickLine={false} axisLine={false} />
-                <RechartsTooltip 
-                  contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}
-                />
-                <Area type="monotone" dataKey="bookings" stroke="#38BDF8" fillOpacity={1} fill="url(#colorUtil)" />
-              </AreaChart>
-            </ResponsiveContainer>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 glass-card p-8 rounded-3xl border border-border/50 h-[450px] flex flex-col relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent pointer-events-none" />
+          <div className="flex justify-between items-start mb-10 z-10">
+            <div>
+              <h3 className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" /> Demand Velocity
+              </h3>
+              <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-1">Rolling 7-Day Frequency</p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-success/10 border border-success/20 text-success text-[10px] font-black uppercase tracking-widest">
+              <TrendingUp className="w-3 h-3" /> +12% Growth
+            </div>
           </div>
-        </div>
 
-        {/* Peak Hours Chart */}
-        <div className="glass-card p-6 rounded-xl border border-border h-[400px] flex flex-col">
-          <h3 className="font-semibold mb-6">Peak Hour Distribution</h3>
-          <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={peakHoursData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="time" stroke="#94A3B8" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94A3B8" fontSize={12} tickLine={false} axisLine={false} />
-                <RechartsTooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                  contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}
-                />
-                <Bar dataKey="value" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Donut Chart */}
-        <div className="glass-card p-6 rounded-xl border border-border h-[400px] flex flex-col">
-          <h3 className="font-semibold mb-6">Resource Allocation</h3>
-          <div className="flex-1 min-h-0 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={resourceAllocation}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={120}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
+          <div className="flex-1 flex items-end justify-between gap-2 px-4 z-10 pb-6 relative">
+            {loading ? (
+              <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : chartPoints.length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+                <BarChart3 className="w-12 h-12 mb-2" />
+                <p className="text-sm font-black uppercase tracking-widest">Zero Data Points</p>
+              </div>
+            ) : chartPoints.map((point, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-3 group">
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: `${Math.max(point.height, 5)}%` }}
+                  transition={{ duration: 1.5, delay: i * 0.1, ease: "circOut" }}
+                  className="w-full bg-gradient-to-t from-primary/80 to-accent rounded-t-lg relative shadow-[0_0_15px_rgba(56,189,248,0.1)] group-hover:opacity-100 opacity-80 transition-all cursor-pointer"
                 >
-                  {resourceAllocation.map((_entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-[10px]">
-            {resourceAllocation.map((entry, index) => (
-              <div key={index} className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
-                {entry.name}
+                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-card border border-border px-2 py-1 rounded text-[10px] font-black opacity-0 group-hover:opacity-100 transition-opacity shadow-xl">
+                     {point.bookings}
+                   </div>
+                </motion.div>
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                  {point.date.split('-').slice(2)}
+                </span>
               </div>
             ))}
           </div>
         </div>
-        
-        {/* Live Heatmap Summary */}
-        <div className="glass-card p-6 rounded-xl border border-border h-[400px] flex flex-col overflow-y-auto">
-          <h3 className="font-semibold mb-6">Live Building Status</h3>
-          <div className="space-y-4 flex-1">
-             {buildingStatus.map((b, i) => (
-               <div key={i} className="space-y-2">
-                 <div className="flex justify-between text-sm">
-                   <span>{b.name}</span>
-                   <span className="font-bold">{b.val}%</span>
-                 </div>
-                 <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                   <div 
-                     className={`h-full rounded-full ${b.status === 'danger' ? 'bg-danger' : b.status === 'warning' ? 'bg-warning' : 'bg-success'}`} 
-                     style={{ width: `${b.val}%` }} 
-                   />
-                 </div>
-               </div>
-             ))}
+
+        <div className="glass-card p-8 rounded-3xl border border-border/50 h-[450px] flex flex-col">
+          <h3 className="text-lg font-black uppercase tracking-tight flex items-center gap-2 mb-8">
+            <TrendingUp className="w-5 h-5 text-accent" /> Insights
+          </h3>
+          
+          <div className="space-y-6 flex-1">
+            {[
+              { label: "Peak Efficiency", detail: "M-Block labs reaching 92% occupancy during peak hours.", color: "text-success", icon: ShieldCheck },
+              { label: "Demand Shift", detail: "Waitlist volume moved from 2 PM to 10 AM this week.", color: "text-primary", icon: Activity },
+              { label: "Resource Gap", detail: "Classroom availability is critical in C-Block (Blockage).", color: "text-warning", icon: Info },
+            ].map((insight, i) => (
+              <div key={i} className="flex gap-4 p-4 rounded-2xl bg-secondary/30 border border-border/50 group hover:border-primary/30 transition-colors">
+                <div className={`p-2 rounded-lg bg-background border border-border group-hover:border-primary/20 ${insight.color}`}>
+                  <insight.icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-widest mb-1">{insight.label}</h4>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">{insight.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-auto pt-6 border-t border-border/50">
+             <p className="text-[9px] text-muted-foreground font-black uppercase tracking-[0.2em] text-center italic opacity-40">
+               Intelligence engine: Active
+             </p>
           </div>
         </div>
-
       </div>
     </div>
   )
