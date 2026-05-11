@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Outlet, Link, useLocation, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { QrCode, ScanLine, CheckCircle2, ArrowRight, XCircle, Camera } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
-import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode"
+import { Html5Qrcode } from "html5-qrcode"
 
 export default function QRCheckIn() {
   const [scanning, setScanning] = useState(false)
@@ -30,7 +30,7 @@ export default function QRCheckIn() {
           await handleCheckIn(decodedText);
           stopScanner();
         },
-        (errorMessage) => {
+        () => {
           // Error callback
         }
       ).catch((err) => {

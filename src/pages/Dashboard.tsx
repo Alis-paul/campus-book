@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Users, CalendarCheck, Clock, Activity, TrendingUp, ArrowRight, Info, AlertCircle, QrCode, X, Calendar } from "lucide-react"
+import { Users, CalendarCheck, Clock, Activity, Info, AlertCircle, QrCode, X, Calendar } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 
 export default function Dashboard() {
@@ -178,22 +178,7 @@ export default function Dashboard() {
     }
   }
 
-  const handleCancelBooking = async (id: string) => {
-    if (!window.confirm("Are you sure you want to cancel this booking?")) return;
-    try {
-      const res = await fetch(`http://localhost:3000/api/bookings/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        fetchUserBookings();
-        fetchResources();
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }
+
 
   const schedule = userBookings
     .filter(b => b.status !== 'EXPIRED' && b.status !== 'CANCELLED')

@@ -34,7 +34,7 @@ export default function Signup() {
       const result = await res.json();
 
       if (result.status === 'success') {
-        login(activeTab, result.data.accessToken);
+        login(activeTab, result.data.accessToken, result.data.user);
         navigate("/dashboard");
       } else {
         setError(result.message || "Registration failed");

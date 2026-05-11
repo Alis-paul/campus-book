@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
-  ZoomOut, 
-  Maximize2, 
   X, 
   Info, 
   User, 
@@ -11,7 +9,6 @@ import {
   LayoutGrid,
   CheckCircle2,
   AlertCircle,
-  Trophy,
   Calendar
 } from "lucide-react"
 import { useAuthStore } from "../store/authStore"

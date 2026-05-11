@@ -3,10 +3,17 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 
 export type Role = 'faculty' | 'student' | null
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface AuthState {
   role: Role
   token: string | null
-  login: (role: Role, token: string) => void
+  user: User | null
+  login: (role: Role, token: string, user: User) => void
   logout: () => void
 }
 
@@ -15,8 +22,9 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       role: null,
       token: null,
-      login: (role, token) => set({ role, token }),
-      logout: () => set({ role: null, token: null }),
+      user: null,
+      login: (role, token, user) => set({ role, token, user }),
+      logout: () => set({ role: null, token: null, user: null }),
     }),
     {
       name: 'campusbook-auth',

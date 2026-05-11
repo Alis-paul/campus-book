@@ -38,7 +38,7 @@ export default function Login() {
       if (result.status === 'success') {
         // Ensure the role in state matches the role returned or selected
         const userRole = result.data.user.role || activeTab;
-        login(userRole, result.data.accessToken);
+        login(userRole, result.data.accessToken, result.data.user);
         navigate("/dashboard");
       } else {
         setError(result.message || "Invalid email or password");
