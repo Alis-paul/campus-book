@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -69,6 +70,40 @@ async function main() {
     { name: "Sports Complex", type: "Sports Facility", capacity: 1000, location: "Sports Complex", status: "Available" },
   ];
 
+  // 2. Create default users
+  const facultyPassword = await bcrypt.hash('password123', 10);
+  const studentPassword = await bcrypt.hash('password123', 10);
+
+  const users = [
+    {
+      name: 'Dr. Faculty',
+      email: 'faculty@university.edu',
+      password: facultyPassword,
+      role: 'faculty',
+      college: 'VVCE',
+      course: 'Computer Science',
+    },
+    {
+      name: 'John Student',
+      email: 'student@university.edu',
+      password: studentPassword,
+      role: 'student',
+      college: 'VVCE',
+      course: 'Information Science',
+      year: 3,
+    }
+  ];
+
+  for (const user of users) {
+    await prisma.user.upsert({
+      where: { email: user.email },
+      update: {},
+      create: user,
+    });
+    console.log(`Created user: ${user.name}`);
+  }
+
+  // 3. Create resources
   for (const resource of resources) {
     await prisma.resource.create({
       data: resource,
@@ -76,7 +111,7 @@ async function main() {
     console.log(`Created resource: ${resource.name}`);
   }
 
-  console.log('Successfully seeded VVCE resources and cleaned old data!');
+  console.log('Successfully seeded VVCE resources and users!');
 }
 
 main()

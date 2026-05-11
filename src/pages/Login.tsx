@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate, useSearchParams, Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { ArrowRight, GraduationCap, Users, AlertCircle } from "lucide-react"
+import { ArrowRight, GraduationCap, Users, AlertCircle, ShieldAlert } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 import type { Role } from "../store/authStore"
 import { motion, AnimatePresence } from "framer-motion"
@@ -12,30 +12,45 @@ export default function Login() {
   const [activeTab, setActiveTab] = useState<Role>(initialRole)
   const { register, handleSubmit } = useForm()
   const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
+  const login = useAuthStore((state) => state.login)
 
   const onSubmit = async (data: any) => {
-    setIsLoading(true);
-    setError("");
+    setIsLoading(true)
+    setError("")
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
-      });
-      
-      const json = await res.json();
-      
+      })
+
+      const json = await res.json()
+
       if (json.status === 'success') {
-        // The backend returns role in the user object
-        login(json.data.user.role, json.data.accessToken, json.data.user);
-        navigate("/dashboard");
+        const dbRole = (json.data.user.role || '').toLowerCase()
+        const selectedTab = (activeTab || 'student').toLowerCase()
+
+        // Enforce: the tab you selected MUST match your actual DB role
+        if (dbRole !== selectedTab) {
+          const correctPortal = dbRole === 'faculty' ? 'Faculty' : 'Student'
+          setError(
+            `This account is registered as a ${correctPortal}. Please switch to the ${correctPortal} tab to log in.`
+          )
+          setIsLoading(false)
+          return
+        }
+
+        login(dbRole as Role, json.data.accessToken, json.data.user)
+        navigate("/dashboard")
       } else {
-        setError(json.message || "Invalid credentials");
+        setError(json.message || "Invalid email or password")
       }
     } catch (err) {
-      setError("Connection error. Please try again.");
+      setError("Connection error. Please check your internet and try again.")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -43,13 +58,15 @@ export default function Login() {
     <div className="w-full max-w-md mx-auto">
       <div className="flex bg-secondary p-1 rounded-xl mb-6 border border-border">
         <button
-          onClick={() => setActiveTab("faculty")}
+          type="button"
+          onClick={() => { setActiveTab("faculty"); setError("") }}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${activeTab === "faculty" ? "bg-card shadow-sm border border-border text-primary neon-glow" : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"}`}
         >
           <GraduationCap className="w-4 h-4" /> Faculty
         </button>
         <button
-          onClick={() => setActiveTab("student")}
+          type="button"
+          onClick={() => { setActiveTab("student"); setError("") }}
           className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${activeTab === "student" ? "bg-card shadow-sm border border-border text-accent ai-glow" : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"}`}
         >
           <Users className="w-4 h-4" /> Student
@@ -75,14 +92,16 @@ export default function Login() {
               </span>
             </div>
             <p className="text-muted-foreground mb-8 text-sm">
-              {activeTab === "faculty" ? "Log in to manage your classroom and resource bookings." : "Log in to view campus schedules and real-time availability."}
+              {activeTab === "faculty"
+                ? "Log in to manage your classroom and resource bookings."
+                : "Log in to view campus schedules and real-time availability."}
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">University Email</label>
                 <input
-                  {...register("email")}
+                  {...register("email", { required: true })}
                   type="email"
                   placeholder={activeTab === "faculty" ? "faculty@university.edu" : "student@university.edu"}
                   className={`w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors text-foreground placeholder:text-muted-foreground ${activeTab === "faculty" ? "focus:border-primary/50" : "focus:border-accent/50"}`}
@@ -96,7 +115,7 @@ export default function Login() {
                   <a href="#" className={`text-xs hover:underline ${activeTab === 'faculty' ? 'text-primary' : 'text-accent'}`}>Forgot password?</a>
                 </div>
                 <input
-                  {...register("password")}
+                  {...register("password", { required: true })}
                   type="password"
                   placeholder="••••••••"
                   className={`w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors text-foreground placeholder:text-muted-foreground ${activeTab === "faculty" ? "focus:border-primary/50" : "focus:border-accent/50"}`}
@@ -111,8 +130,8 @@ export default function Login() {
 
               {error && (
                 <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-danger shrink-0" />
-                  <p className="text-xs text-danger font-medium">{error}</p>
+                  <ShieldAlert className="w-5 h-5 text-danger shrink-0 mt-0.5" />
+                  <p className="text-xs text-danger font-medium leading-relaxed">{error}</p>
                 </div>
               )}
 

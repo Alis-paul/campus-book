@@ -5,8 +5,8 @@ import prisma from '../prisma/client';
 
 export const protect = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    let token;
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    let token: string | undefined;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
     }
 
@@ -14,8 +14,12 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       return next(new AppError('Not authorized, no token provided', 401));
     }
 
-    // Support fake-token for testing purposes
-    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET!) as { id: string };
+    let decoded: { id: string };
+    try {
+      decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET!) as { id: string };
+    } catch {
+      return next(new AppError('Not authorized, token is invalid or expired', 401));
+    }
 
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
     if (!user) {
@@ -25,13 +29,19 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
     req.user = user as any;
     next();
   } catch (error) {
-    return next(new AppError('Not authorized, token failed', 401));
+    return next(new AppError('Authentication failed', 401));
   }
 };
 
+/**
+ * Restrict access to specific roles (case-insensitive comparison).
+ * Usage: restrictTo('faculty', 'admin')
+ */
 export const restrictTo = (...roles: string[]) => {
+  const normalizedRoles = roles.map(r => r.toLowerCase());
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!roles.includes((req as any).user.role)) {
+    const userRole = ((req as any).user?.role || '').toLowerCase();
+    if (!normalizedRoles.includes(userRole)) {
       return next(new AppError('You do not have permission to perform this action', 403));
     }
     next();

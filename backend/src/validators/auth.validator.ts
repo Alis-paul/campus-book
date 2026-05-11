@@ -7,7 +7,8 @@ export const registerSchema = z.object({
     password: z.string().min(6),
     college: z.string().optional(),
     course: z.string().optional(),
-    year: z.number().int().optional(),
+    // Accept year as string or number (HTML forms send strings)
+    year: z.union([z.string(), z.number()]).optional(),
     role: z.string().optional(),
   }),
 });
@@ -15,7 +16,7 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   body: z.object({
     email: z.string().email(),
-    password: z.string(),
+    password: z.string().min(1, 'Password is required'),
   }),
 });
 

@@ -34,8 +34,12 @@ export function DashboardLayout() {
     navigate('/')
   }
 
-  // Filter nav items based on user role. Default to student if null for safe rendering.
-  const currentRole = (role || 'student').toLowerCase()
+  // Filter nav items based on user role. If role is null, redirect to login.
+  const currentRole = role?.toLowerCase() as 'faculty' | 'student' | null;
+  if (!token || !currentRole) {
+    // State is corrupted or user is not authenticated — handled by useEffect redirect above
+    return null;
+  }
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentRole))
 
   return (

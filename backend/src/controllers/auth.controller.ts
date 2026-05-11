@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
 import { AppError } from '../utils/errors';
-import crypto from 'crypto';
 
 const generateTokens = (userId: string) => {
   const accessToken = jwt.sign({ id: userId }, process.env.JWT_ACCESS_SECRET!, {
@@ -17,7 +16,9 @@ const generateTokens = (userId: string) => {
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, email, password, college, course, year, role } = req.body;
+    const { name, email, password, college, course, role } = req.body;
+    // year may come as string from form, coerce safely
+    const year = req.body.year ? parseInt(String(req.body.year), 10) : undefined;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -25,20 +26,26 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    // Normalize role to lowercase for consistent storage
+    const normalizedRole = (role || 'student').toLowerCase();
+
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword, college, course, year, role: role || 'student' },
+      data: { name, email, password: hashedPassword, college, course, year, role: normalizedRole },
     });
 
     const { accessToken, refreshToken } = generateTokens(user.id);
-    
+
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     await prisma.refreshToken.create({
       data: { token: refreshToken, userId: user.id, expiresAt }
     });
 
-    res.status(201).json({ status: 'success', data: { user, accessToken, refreshToken } });
+    // Don't return the password hash
+    const { password: _pw, ...safeUser } = user as any;
+    res.status(201).json({ status: 'success', data: { user: safeUser, accessToken, refreshToken } });
   } catch (error) {
+    console.error('Register error:', error);
     next(error);
   }
 };
@@ -46,6 +53,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
+
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -60,8 +68,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       data: { token: refreshToken, userId: user.id, expiresAt }
     });
 
-    res.status(200).json({ status: 'success', data: { user, accessToken, refreshToken } });
+    // Don't return the password hash
+    const { password: _pw, ...safeUser } = user as any;
+    res.status(200).json({ status: 'success', data: { user: safeUser, accessToken, refreshToken } });
   } catch (error) {
+    console.error('Login error:', error);
     next(error);
   }
 };
@@ -94,7 +105,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
 
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
-      
+
       await prisma.refreshToken.update({
         where: { token },
         data: { token: tokens.refreshToken, expiresAt }

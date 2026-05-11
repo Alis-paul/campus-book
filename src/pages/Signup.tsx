@@ -6,7 +6,7 @@ import { useAuthStore } from "../store/authStore"
 
 export default function Signup() {
   const [activeTab, setActiveTab] = useState<'student' | 'faculty'>('student')
-  const { register, handleSubmit } = useForm()
+  const { register, handleSubmit, formState: { errors } } = useForm()
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
@@ -24,18 +24,18 @@ export default function Signup() {
           name: `${data.firstName} ${data.lastName}`,
           email: data.email,
           password: data.password,
-          role: data.role, // Will be 'FACULTY' or 'STUDENT'
+          role: (data.role || 'student').toLowerCase(),
           college: "VVCE",
           course: data.course || "General",
-          year: parseInt(data.year) || 1
+          year: data.year || undefined
         })
       });
 
       const result = await res.json();
 
       if (result.status === 'success') {
-        // Normalize role to lowercase for store
-        login(data.role.toLowerCase(), result.data.accessToken, result.data.user);
+        // Use role from server response (already normalized)
+        login(result.data.user.role, result.data.accessToken, result.data.user);
         navigate("/dashboard");
       } else {
         setError(result.message || "Registration failed");
@@ -58,14 +58,18 @@ export default function Signup() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Select Role</label>
+              <label className="text-sm font-medium text-foreground">
+                I am a... <span className="text-danger">*</span>
+              </label>
               <select
-                {...register("role", { required: true })}
-                onChange={(e) => setActiveTab(e.target.value === 'FACULTY' ? 'faculty' : 'student')}
+                {...register("role", { required: "Please select your role", validate: v => v !== "" || "Please select your role" })}
+                onChange={(e) => setActiveTab(e.target.value as 'faculty' | 'student')}
+                defaultValue=""
                 className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
               >
-                <option value="STUDENT">Student</option>
-                <option value="FACULTY">Faculty</option>
+                <option value="" disabled>— Select your role —</option>
+                <option value="student">Student</option>
+                <option value="faculty">Faculty Member</option>
               </select>
             </div>
 

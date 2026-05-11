@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-export type Role = 'faculty' | 'student' | 'FACULTY' | 'STUDENT' | null
+// Only lowercase roles are valid in the store.
+// The backend always stores and returns lowercase roles.
+export type Role = 'faculty' | 'student' | null
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -12,14 +14,16 @@ interface User {
   course?: string;
   year?: number;
   avatar?: string;
+  bio?: string;
 }
 
 interface AuthState {
-  role: 'faculty' | 'student' | null
+  role: Role
   token: string | null
   user: User | null
-  login: (role: Role, token: string, user: User) => void
+  login: (role: string | null | undefined, token: string, user: User) => void
   logout: () => void
+  updateRole: (role: string) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -28,12 +32,31 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       token: null,
       user: null,
+
       login: (role, token, user) => {
-        const normalizedRole = role?.toLowerCase() as 'faculty' | 'student' | null;
-        const normalizedUser = user ? { ...user, role: user.role?.toLowerCase() } : null;
-        set({ role: normalizedRole, token, user: normalizedUser });
+        // Normalize role — DB may return 'faculty'/'student' or even 'FACULTY'/'STUDENT'
+        const normalizedRole = (role || '').toLowerCase() as Role;
+        const validRole: Role = (normalizedRole === 'faculty' || normalizedRole === 'student')
+          ? normalizedRole
+          : null;
+
+        const normalizedUser: User | null = user
+          ? { ...user, role: (user.role || '').toLowerCase() }
+          : null;
+
+        set({ role: validRole, token, user: normalizedUser });
       },
+
       logout: () => set({ role: null, token: null, user: null }),
+
+      // Update role in store after a role change (e.g., after calling PATCH /users/me/role)
+      updateRole: (role: string) => {
+        const normalizedRole = role.toLowerCase() as Role;
+        set(state => ({
+          role: normalizedRole,
+          user: state.user ? { ...state.user, role: normalizedRole } : null,
+        }));
+      },
     }),
     {
       name: 'campusbook-auth',

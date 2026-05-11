@@ -83,29 +83,32 @@ export default function Booking() {
     }
 
     const now = new Date();
-    const start = new Date(`${bookingDate}T${startTime}:00Z`);
-    const end = new Date(`${bookingDate}T${endTime}:00Z`);
-    
-    // Convert current time to UTC for comparison
-    const nowUTC = new Date(now.toISOString());
-    const selectedDate = new Date(bookingDate);
-    const today = new Date(now.toISOString().split('T')[0]);
+    // Construct local datetime (no 'Z' suffix) so it uses local timezone
+    const start = new Date(`${bookingDate}T${startTime}:00`);
+    const end = new Date(`${bookingDate}T${endTime}:00`);
 
-    if (selectedDate < today) {
-      setError("Cannot book for a past date");
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      setError("Invalid date or time");
+      setSubmitting(false);
       return;
     }
 
-    if (selectedDate.toDateString() === today.toDateString()) {
-      const fifteenMinsFromNow = new Date(nowUTC.getTime() + 15 * 60000);
-      if (start < fifteenMinsFromNow) {
-        setError("Start time must be at least 15 minutes from now");
-        return;
-      }
+    if (start < now) {
+      setError("Start time must be in the future");
+      setSubmitting(false);
+      return;
+    }
+
+    const fifteenMinsFromNow = new Date(now.getTime() + 15 * 60000);
+    if (start < fifteenMinsFromNow) {
+      setError("Start time must be at least 15 minutes from now");
+      setSubmitting(false);
+      return;
     }
 
     if (end <= start) {
       setError("End time must be after start time");
+      setSubmitting(false);
       return;
     }
 

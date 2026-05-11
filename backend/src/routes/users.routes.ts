@@ -12,4 +12,7 @@ router.get('/search', usersController.searchUsers);
 router.get('/:id', usersController.getUser);
 router.put('/:id', upload.single('avatar'), usersController.updateUser);
 
+// Self-service role update (for users who registered with wrong role)
+router.patch('/me/role', usersController.updateMyRole);
+
 export default router;
