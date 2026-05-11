@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { ArrowRight, AlertCircle } from "lucide-react"
+import { ArrowRight, ShieldAlert } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 
 export default function Signup() {
@@ -34,7 +34,6 @@ export default function Signup() {
       const result = await res.json();
 
       if (result.status === 'success') {
-        // Use role from server response (already normalized)
         login(result.data.user.role, result.data.accessToken, result.data.user);
         navigate("/dashboard");
       } else {
@@ -62,7 +61,7 @@ export default function Signup() {
                 I am a... <span className="text-danger">*</span>
               </label>
               <select
-                {...register("role", { required: "Please select your role", validate: v => v !== "" || "Please select your role" })}
+                {...register("role", { required: "Please select your role" })}
                 onChange={(e) => setActiveTab(e.target.value as 'faculty' | 'student')}
                 defaultValue=""
                 className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
@@ -137,8 +136,8 @@ export default function Signup() {
 
             {error && (
               <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 flex gap-3">
-                <AlertCircle className="w-5 h-5 text-danger shrink-0" />
-                <p className="text-xs text-danger font-medium">{error}</p>
+                <ShieldAlert className="w-5 h-5 text-danger shrink-0 mt-0.5" />
+                <p className="text-xs text-danger font-medium leading-relaxed">{error}</p>
               </div>
             )}
 

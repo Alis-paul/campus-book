@@ -47,10 +47,20 @@ export const useAuthStore = create<AuthState>()(
       updateRole: (role: string) => {
         const r = role.toLowerCase()
         const validRole: Role = (r === 'faculty' || r === 'student') ? r : null
-        set((state): Partial<AuthState> => ({
-          role: validRole,
-          user: state.user ? { ...state.user, role: r } : null,
-        }))
+        
+        set((state): Partial<AuthState> => {
+          if (!state.user) return { role: validRole };
+          
+          const updatedUser: User = {
+            ...state.user,
+            role: r // r is a string, which satisfies User.role: string
+          };
+
+          return {
+            role: validRole,
+            user: updatedUser
+          };
+        });
       },
     }),
     {

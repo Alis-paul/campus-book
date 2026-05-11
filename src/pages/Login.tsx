@@ -32,7 +32,6 @@ export default function Login() {
         const dbRole = (json.data.user.role || '').toLowerCase()
         const selectedTab = (activeTab || 'student').toLowerCase()
 
-        // Enforce: the tab you selected MUST match your actual DB role
         if (dbRole !== selectedTab) {
           const correctPortal = dbRole === 'faculty' ? 'Faculty' : 'Student'
           setError(
