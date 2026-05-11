@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Line } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts'
 import { Activity, Users, Clock, TrendingUp } from 'lucide-react'
 import { Navigate } from "react-router-dom"
 import { useAuthStore } from "../store/authStore"
@@ -13,12 +13,6 @@ const peakHoursData = [
   { time: '6 PM', value: 30 },
 ]
 
-const resourceTypeData = [
-  { name: 'Classrooms', value: 45 },
-  { name: 'Labs', value: 25 },
-  { name: 'Libraries', value: 20 },
-  { name: 'Meeting Rooms', value: 10 },
-]
 const COLORS = ['#38BDF8', '#8B5CF6', '#10B981', '#F59E0B']
 
 export default function Analytics() {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Filter, Users, MapPin, AlertCircle, Lock, Info, Clock, User } from "lucide-react"
+import { Search, Filter, Users, MapPin, AlertCircle, Info, Clock } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 
 interface Resource {
@@ -233,8 +233,8 @@ export default function Booking() {
             new Date(b.startTime) <= now && new Date(b.endTime) >= now
           ).sort((a, b) => {
             // Priority: CHECKED_IN > CONFIRMED > CANCELLED
-            const p = { 'CHECKED_IN': 0, 'CONFIRMED': 1, 'CANCELLED': 2 };
-            return (p[a.status] ?? 3) - (p[b.status] ?? 3);
+            const p: Record<string, number> = { 'CHECKED_IN': 0, 'CONFIRMED': 1, 'CANCELLED': 2 };
+            return (p[a.status as keyof typeof p] ?? 3) - (p[b.status as keyof typeof p] ?? 3);
           }) || [];
 
           const currentBooking = activeBookings[0];
@@ -314,7 +314,7 @@ export default function Booking() {
                 
                 <div className="space-y-2 flex-1 bg-secondary/10 rounded-lg p-3 border border-border/10 mt-2">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Today's Schedule</p>
-                  {resource.bookings?.filter(b => new Date(b.startTime).toDateString() === now.toDateString()).length > 0 ? (
+                  {(resource.bookings?.filter(b => new Date(b.startTime).toDateString() === now.toDateString())?.length ?? 0) > 0 ? (
                     resource.bookings
                       ?.filter(b => new Date(b.startTime).toDateString() === now.toDateString())
                       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
