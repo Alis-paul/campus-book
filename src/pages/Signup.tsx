@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { ArrowRight, GraduationCap, Users, AlertCircle } from "lucide-react"
+import { ArrowRight, AlertCircle } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 
 export default function Signup() {
@@ -15,7 +15,7 @@ export default function Signup() {
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       const res = await fetch("http://localhost:3000/api/auth/register", {
         method: "POST",
@@ -51,7 +51,7 @@ export default function Signup() {
     <div className="w-full max-w-xl mx-auto">
       <div className="glass-card p-8 sm:p-10 rounded-2xl border border-border/50 shadow-2xl relative overflow-hidden">
         <div className={`absolute bottom-0 left-0 w-32 h-32 rounded-full blur-[50px] ${activeTab === 'student' ? 'bg-accent/10' : 'bg-primary/10'}`} />
-        
+
         <div className="relative z-10">
           <h2 className="text-3xl font-bold mb-2">Create Account</h2>
           <p className="text-muted-foreground mb-8 text-sm">Join CampusBook to start booking resources instantly.</p>
@@ -59,7 +59,7 @@ export default function Signup() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Select Role</label>
-              <select 
+              <select
                 {...register("role", { required: true })}
                 onChange={(e) => setActiveTab(e.target.value === 'FACULTY' ? 'faculty' : 'student')}
                 className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
@@ -72,18 +72,18 @@ export default function Signup() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">First Name</label>
-                <input 
+                <input
                   {...register("firstName", { required: true })}
-                  type="text" 
+                  type="text"
                   placeholder="John"
                   className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Last Name</label>
-                <input 
+                <input
                   {...register("lastName", { required: true })}
-                  type="text" 
+                  type="text"
                   placeholder="Doe"
                   className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
                 />
@@ -92,9 +92,9 @@ export default function Signup() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">University Email</label>
-              <input 
+              <input
                 {...register("email", { required: true })}
-                type="email" 
+                type="email"
                 placeholder="name@university.edu"
                 className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
               />
@@ -103,29 +103,29 @@ export default function Signup() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Department/Course</label>
-                <input 
+                <input
                   {...register("course")}
-                  type="text" 
+                  type="text"
                   placeholder="Computer Science"
                   className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Year/Experience</label>
-                <input 
+                <input
                   {...register("year")}
-                  type="number" 
+                  type="number"
                   placeholder="3"
                   className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Password</label>
-              <input 
+              <input
                 {...register("password", { required: true, minLength: 6 })}
-                type="password" 
+                type="password"
                 placeholder="••••••••"
                 className="w-full bg-secondary border border-border rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-primary/50 text-foreground transition-colors"
               />
@@ -138,13 +138,12 @@ export default function Signup() {
               </div>
             )}
 
-            <button 
+            <button
               type="submit"
               disabled={isLoading}
-              className={`w-full font-medium rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2 mt-2 text-white ${
-                isLoading ? 'opacity-50 cursor-not-allowed' : 
+              className={`w-full font-medium rounded-lg px-4 py-3 transition-all flex items-center justify-center gap-2 mt-2 text-white ${isLoading ? 'opacity-50 cursor-not-allowed' :
                 activeTab === 'faculty' ? 'bg-primary hover:bg-primary/90 neon-glow' : 'bg-accent hover:bg-accent/90 ai-glow'
-              }`}
+                }`}
             >
               {isLoading ? 'Creating Account...' : 'Create Account'} <ArrowRight className="w-4 h-4" />
             </button>
