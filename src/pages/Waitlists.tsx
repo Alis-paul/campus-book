@@ -10,7 +10,7 @@ export default function Waitlists() {
 
   const fetchWaitlists = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/bookings/waitlists", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/waitlists`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -40,7 +40,7 @@ export default function Waitlists() {
 
   const handleLeaveQueue = async (id: string) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/bookings/waitlist/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/waitlist/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       })

@@ -25,10 +25,10 @@ export default function Analytics() {
   const fetchData = async () => {
     try {
       const [activityRes, statsRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/analytics/activity`, {
+        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/activity`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/analytics/stats`, {
+        fetch(`${import.meta.env.VITE_API_URL}/api/analytics/stats`, {
           headers: { Authorization: `Bearer ${token}` }
         })
       ])

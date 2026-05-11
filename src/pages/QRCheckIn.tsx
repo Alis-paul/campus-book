@@ -62,7 +62,7 @@ export default function QRCheckIn() {
 
   const handleCheckIn = async (qrToken: string) => {
     try {
-      const res = await fetch("http://localhost:3000/api/bookings/checkin", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/checkin`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

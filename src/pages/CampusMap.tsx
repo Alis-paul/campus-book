@@ -68,7 +68,7 @@ export default function CampusMap() {
 
   const fetchResources = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/bookings/resources", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/resources`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -134,7 +134,7 @@ export default function CampusMap() {
     }
 
     try {
-      const res = await fetch("http://localhost:3000/api/bookings", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

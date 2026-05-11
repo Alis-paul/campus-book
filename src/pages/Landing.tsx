@@ -44,19 +44,19 @@ export default function Landing() {
             Smart Campus Resource Management
           </motion.div>
 
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-5xl md:text-7xl font-bold tracking-tight max-w-4xl mb-6"
           >
-            Your Campus Connected{" "}
+            VVCE Campus Connected{" "}
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-secondaryAccent">
               Powered by AI
             </span>
           </motion.h1>
 
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -65,7 +65,7 @@ export default function Landing() {
             A secure, role-based platform for managing campus facilities. Faculty can book classrooms and labs, while students have real-time access to availability and schedules.
           </motion.p>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}

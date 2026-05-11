@@ -23,7 +23,7 @@ export default function Dashboard() {
 
   const fetchResources = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/bookings/resources", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/resources`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -37,7 +37,7 @@ export default function Dashboard() {
 
   const fetchUserBookings = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/bookings", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -51,7 +51,7 @@ export default function Dashboard() {
 
   const fetchWaitlists = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/bookings/waitlists", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings/waitlists`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -145,7 +145,7 @@ export default function Dashboard() {
     }
 
     try {
-      const res = await fetch("http://localhost:3000/api/bookings", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/bookings`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
