@@ -6,7 +6,7 @@ import { useAuthStore } from "../store/authStore"
 
 export default function Signup() {
   const [activeTab, setActiveTab] = useState<'student' | 'faculty'>('student')
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { register, handleSubmit } = useForm()
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
