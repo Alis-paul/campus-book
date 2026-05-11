@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate, useSearchParams, Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { ArrowRight, GraduationCap, Users } from "lucide-react"
+import { ArrowRight, GraduationCap, Users, AlertCircle } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 import type { Role } from "../store/authStore"
 import { motion, AnimatePresence } from "framer-motion"
@@ -11,16 +11,32 @@ export default function Login() {
   const initialRole = (searchParams.get("role") as Role) || "student"
   const [activeTab, setActiveTab] = useState<Role>(initialRole)
   const { register, handleSubmit } = useForm()
-  const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
-  const login = useAuthStore((state) => state.login)
+  const [error, setError] = useState("")
 
   const onSubmit = async (data: any) => {
     setIsLoading(true);
-    const fakeUser = { id: '1', name: data.email.split('@')[0], email: data.email, role: activeTab as string };
-    login(activeTab, 'fake-token', fakeUser);
-    navigate("/dashboard");
-    setIsLoading(false);
+    setError("");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      
+      const json = await res.json();
+      
+      if (json.status === 'success') {
+        // The backend returns role in the user object
+        login(json.data.user.role, json.data.accessToken, json.data.user);
+        navigate("/dashboard");
+      } else {
+        setError(json.message || "Invalid credentials");
+      }
+    } catch (err) {
+      setError("Connection error. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -92,6 +108,13 @@ export default function Login() {
                 <input type="checkbox" id="remember" className="rounded border-border bg-secondary accent-primary" />
                 <label htmlFor="remember" className="text-sm text-muted-foreground">Remember me for 30 days</label>
               </div>
+
+              {error && (
+                <div className="bg-danger/10 border border-danger/20 rounded-lg p-3 flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-danger shrink-0" />
+                  <p className="text-xs text-danger font-medium">{error}</p>
+                </div>
+              )}
 
               <button
                 type="submit"

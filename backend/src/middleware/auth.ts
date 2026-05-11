@@ -15,13 +15,6 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
     }
 
     // Support fake-token for testing purposes
-    if (token === 'fake-token') {
-      const testingUser = await prisma.user.findFirst();
-      if (!testingUser) return next(new AppError('No users found in DB for testing', 404));
-      req.user = testingUser as any;
-      return next();
-    }
-
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET!) as { id: string };
 
     const user = await prisma.user.findUnique({ where: { id: decoded.id } });
