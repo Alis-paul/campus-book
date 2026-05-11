@@ -1,15 +1,13 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-// Only lowercase roles are valid in the store.
-// The backend always stores and returns lowercase roles.
 export type Role = 'faculty' | 'student' | null
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: string; // stored as string in DB, normalized to Role at store level
+  role: string;
   college?: string;
   course?: string;
   year?: number;
@@ -34,28 +32,25 @@ export const useAuthStore = create<AuthState>()(
       user: null,
 
       login: (role, token, user) => {
-        // Normalize role — DB may return 'faculty'/'student' or even 'FACULTY'/'STUDENT'
-        const normalizedRole = (role || '').toLowerCase() as Role;
-        const validRole: Role = (normalizedRole === 'faculty' || normalizedRole === 'student')
-          ? normalizedRole
-          : null;
+        const r = (role || '').toLowerCase()
+        const validRole: Role = (r === 'faculty' || r === 'student') ? r : null
 
         const normalizedUser: User | null = user
           ? { ...user, role: (user.role || '').toLowerCase() }
-          : null;
+          : null
 
-        set({ role: validRole, token, user: normalizedUser });
+        set({ role: validRole, token, user: normalizedUser })
       },
 
       logout: () => set({ role: null, token: null, user: null }),
 
-      // Update role in store after a role change (e.g., after calling PATCH /users/me/role)
       updateRole: (role: string) => {
-        const normalizedRole = role.toLowerCase() as Role;
-        set((state) => ({
-          role: normalizedRole,
-          user: state.user ? { ...state.user, role: role.toLowerCase() } : null,
-        }));
+        const r = role.toLowerCase()
+        const validRole: Role = (r === 'faculty' || r === 'student') ? r : null
+        set((state): Partial<AuthState> => ({
+          role: validRole,
+          user: state.user ? { ...state.user, role: r } : null,
+        }))
       },
     }),
     {
