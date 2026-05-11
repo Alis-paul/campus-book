@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  college       String?
+  course        String?
+  year          Int?
+  role          String         @default("student")
+  avatar        String?
+  bio           String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  groups        GroupMember[]
+  listings      Listing[]
+  notifications Notification[]
+  aiSessions    AISession[]
+  refreshTokens RefreshToken[]
+  ownedGroups   Group[]        @relation("GroupOwner")
+  bookings      Booking[]
+  waitlists     Waitlist[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  content   String
+  imageUrl  String?
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  comments  Comment[]
+  likes     Like[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  postId    String
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Group {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  college     String?
+  ownerId     String
+  owner       User          @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  members     GroupMember[]
+}
+
+model GroupMember {
+  id        String   @id @default(uuid())
+  groupId   String
+  userId    String
+  role      String   @default("MEMBER") // "ADMIN" or "MEMBER"
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model Listing {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  price       Float
+  category    String   // e.g., "BOOKS", "NOTES", "ELECTRONICS"
+  college     String?
+  imageUrl    String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String   @default("AVAILABLE") // "AVAILABLE", "SOLD"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // e.g., "LIKE", "COMMENT", "GROUP_INVITE"
+  message   String
+  read      Boolean  @default(false)
+  link      String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model AISession {
+  id        String   @id @default(uuid())
+  userId    String
+  featureType String   // e.g., "SUMMARIZE", "QUIZ", "ESSAY", "CHAT"
+  prompt    String
+  response  String
+  tokens    Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Resource {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  capacity    Int
+  location    String
+  status      String   @default("Available")
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings    Booking[]
+  waitlists   Waitlist[]
+}
+
+model Booking {
+  id          String   @id @default(uuid())
+  resourceId  String
+  userId      String
+  startTime   DateTime
+  endTime     DateTime
+  status      String   @default("CONFIRMED")
+  qrCodeToken String   @unique @default(uuid())
+  checkedInById String?
+  checkedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Waitlist {
+  id          String   @id @default(uuid())
+  resourceId  String
+  userId      String
+  requestedTime DateTime
+  status      String   @default("WAITING")
+  createdAt   DateTime @default(now())
+
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
