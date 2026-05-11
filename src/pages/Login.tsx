@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate, useSearchParams, Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { ArrowRight, GraduationCap, Users, AlertCircle, ShieldAlert } from "lucide-react"
+import { ArrowRight, GraduationCap, Users, ShieldAlert } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 import type { Role } from "../store/authStore"
 import { motion, AnimatePresence } from "framer-motion"

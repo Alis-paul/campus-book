@@ -9,7 +9,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: string; // stored as string in DB, normalized to Role at store level
   college?: string;
   course?: string;
   year?: number;
@@ -52,9 +52,9 @@ export const useAuthStore = create<AuthState>()(
       // Update role in store after a role change (e.g., after calling PATCH /users/me/role)
       updateRole: (role: string) => {
         const normalizedRole = role.toLowerCase() as Role;
-        set(state => ({
+        set((state) => ({
           role: normalizedRole,
-          user: state.user ? { ...state.user, role: normalizedRole } : null,
+          user: state.user ? { ...state.user, role: role.toLowerCase() } : null,
         }));
       },
     }),
