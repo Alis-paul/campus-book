@@ -5,7 +5,6 @@ import { AuthLayout } from "./layouts/AuthLayout"
 // Pages
 import Landing from "./pages/Landing"
 import Login from "./pages/Login"
-import Signup from "./pages/Signup"
 import Dashboard from "./pages/Dashboard"
 import Booking from "./pages/Booking"
 import CampusMap from "./pages/CampusMap"
